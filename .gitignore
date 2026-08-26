@@ -1,0 +1,26 @@
+# Dependencies
+**/node_modules/
+
+# Secrets — never commit real credentials. server/.env.example is the template.
+**/.env
+**/.env.*
+!**/.env.example
+
+# Logs
+npm-debug.log*
+**/npm-debug.log*
+
+# Local-only data dumps and DB backups
+server/data/hotels.json
+server/data/*.csv
+backups/
+
+# Archival video source — not referenced by any page, only kept locally for
+# regenerating hero-loop.mp4 if the footage changes. 13MB with no reason to
+# live in the repo.
+FinalVideo.mp4
+LOGIN VIDEO.mp4
+
+# OS cruft
+.DS_Store
+Thumbs.db

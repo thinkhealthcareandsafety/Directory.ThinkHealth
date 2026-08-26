@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign In &middot; Thinkhealth Hotel Database</title>
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="icon" href="favicon-16.png" type="image/png" sizes="16x16">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="stylesheet" href="Style.css?v=52">
+  <style>
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--ink);
+      padding: 2rem 1rem;
+    }
+
+    /* Style.css paints the shared photo backdrop behind every page. Here the
+       card and brand text are light-on-dark, so the parchment scrim it ships
+       with is replaced by an ink one. */
+    body::after {
+      background: linear-gradient(
+        to bottom,
+        rgba(28, 46, 42, 0.38) 0%,
+        rgba(28, 46, 42, 0.62) 100%
+      );
+    }
+
+    .auth-shell { width: 100%; max-width: 430px; }
+
+    .auth-brand {
+      text-align: center;
+      margin-bottom: 1.75rem;
+    }
+    .auth-brand img { height: 34px; display: block; margin: 0 auto 0.75rem; }
+    .auth-brand h1 {
+      font-family: var(--font-display);
+      color: var(--paper);
+      font-size: 1.6rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .auth-brand p {
+      color: var(--brass);
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      margin-top: 0.4rem;
+    }
+
+    .auth-card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 1.75rem;
+      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.28);
+    }
+
+    .auth-tabs {
+      display: flex;
+      border-bottom: 2px solid var(--border-color);
+      margin-bottom: 1.5rem;
+    }
+    .auth-tab {
+      flex: 1;
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -2px;
+      padding: 0.6rem 0.5rem;
+      font-family: var(--font-body);
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .auth-tab:hover { color: var(--ink); }
+    .auth-tab.active { color: var(--brass); border-bottom-color: var(--brass); }
+
+    .auth-panel[hidden] { display: none; }
+
+    .auth-note {
+      color: var(--muted);
+      font-size: 0.84rem;
+      line-height: 1.55;
+      margin-bottom: 1.25rem;
+    }
+
+    .auth-card .form-group { margin-bottom: 1rem; }
+    .auth-card label {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--ink);
+      margin-bottom: 0.35rem;
+    }
+    .auth-card input {
+      width: 100%;
+      padding: 0.65rem 0.75rem;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      font-family: var(--font-body);
+      font-size: 0.92rem;
+      color: var(--ink);
+      background: var(--paper);
+    }
+    .auth-card input:focus {
+      outline: none;
+      border-color: var(--brass);
+      box-shadow: 0 0 0 3px var(--brass-tint);
+    }
+
+    .auth-submit {
+      width: 100%;
+      padding: 0.7rem;
+      margin-top: 0.5rem;
+      background: var(--ink);
+      color: var(--paper);
+      border: none;
+      border-radius: var(--radius-sm);
+      font-family: var(--font-body);
+      font-size: 0.94rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .auth-submit:hover:not(:disabled) { background: var(--ink-soft); }
+    .auth-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .auth-msg {
+      font-size: 0.85rem;
+      padding: 0.6rem 0.75rem;
+      border-radius: var(--radius-sm);
+      margin-bottom: 0.75rem;
+      line-height: 1.45;
+    }
+    .auth-msg[hidden] { display: none; }
+    .auth-msg.error {
+      color: var(--danger);
+      background: var(--danger-bg);
+      border: 1px solid var(--danger-border);
+    }
+    .auth-msg.success {
+      color: var(--success);
+      background: var(--success-bg);
+      border: 1px solid var(--success-border);
+    }
+
+    .field-hint { font-weight: 400; color: var(--muted); font-size: 0.78rem; }
+
+    .auth-link-row { text-align: right; margin: -0.5rem 0 1rem; }
+    .auth-link {
+      background: none;
+      border: none;
+      padding: 0;
+      font-family: var(--font-body);
+      font-size: 0.8rem;
+      color: var(--brass);
+      cursor: pointer;
+      text-decoration: underline;
+    }
+    .auth-link:hover { color: var(--ink); }
+    .auth-back {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      background: none;
+      border: none;
+      padding: 0;
+      margin-bottom: 1rem;
+      font-family: var(--font-body);
+      font-size: 0.82rem;
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .auth-back:hover { color: var(--ink); }
+
+    .otp-input {
+      letter-spacing: 0.4em;
+      font-family: var(--font-mono);
+      font-size: 1.15rem;
+      text-align: center;
+    }
+    .otp-timer {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin: -0.3rem 0 1rem;
+      text-align: center;
+    }
+    .otp-timer.is-expired { color: var(--danger); }
+    .otp-resend {
+      background: none;
+      border: none;
+      padding: 0;
+      font-family: var(--font-body);
+      font-size: 0.82rem;
+      color: var(--brass);
+      cursor: pointer;
+      text-decoration: underline;
+    }
+    .otp-resend:disabled { color: var(--muted); cursor: not-allowed; text-decoration: none; }
+
+    .auth-footer {
+      text-align: center;
+      color: rgba(246, 243, 236, 0.5);
+      font-size: 0.76rem;
+      margin-top: 1.5rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Background video layer. One continuous clip, audio stripped, looped
+       natively. It was previously split into two files played back-to-back,
+       which flickered at the seam: swapping <source> forces video.load(),
+       and that blanks the frame buffer for a moment. Keep it as one file.
+       muted+playsinline are required for autoplay; aria-hidden as decoration. -->
+  <img class="bg-fallback" src="hero-poster.webp?v=51" alt="" aria-hidden="true"
+       fetchpriority="high" decoding="async">
+  <video class="bg-video" autoplay muted playsinline disablepictureinpicture
+         preload="none" poster="hero-poster.jpg?v=51"
+         data-src="hero-loop.mp4?v=51"
+         aria-hidden="true" tabindex="-1">
+  </video>
+
+
+  <div class="auth-shell">
+    <div class="auth-brand">
+      <img src="logo.png?v=54" alt="Thinkhealth" onerror="this.style.display='none'">
+      <h1>Hotel Database</h1>
+      <p>Pan-India Directory</p>
+    </div>
+
+    <div class="auth-card">
+      <div class="auth-tabs" id="authTabs">
+        <button class="auth-tab active" data-panel="signin" type="button">Sign In</button>
+        <button class="auth-tab" data-panel="signup" type="button">Create Account</button>
+      </div>
+
+      <!-- SIGN IN -->
+      <div class="auth-panel" id="panel-signin">
+        <p class="auth-msg error" id="signinError" hidden></p>
+        <p class="auth-msg success" id="signinSuccess" hidden></p>
+        <form id="signinForm" novalidate>
+          <div class="form-group">
+            <label for="signinEmail">Email</label>
+            <input type="email" id="signinEmail" autocomplete="email" required>
+          </div>
+          <div class="form-group">
+            <label for="signinPassword">Password</label>
+            <input type="password" id="signinPassword" autocomplete="current-password" required>
+          </div>
+          <div class="auth-link-row">
+            <button type="button" class="auth-link" id="forgotPasswordLink">Forgot password?</button>
+          </div>
+          <button type="submit" class="auth-submit" id="signinSubmit">Sign In</button>
+        </form>
+      </div>
+
+      <!-- CREATE ACCOUNT -->
+      <div class="auth-panel" id="panel-signup" hidden>
+        <p class="auth-note">
+          New accounts get <strong>viewer</strong> access &mdash; you can browse the
+          directory but not edit it. Request admin access once you're signed in.
+        </p>
+        <p class="auth-msg error" id="signupError" hidden></p>
+        <p class="auth-msg success" id="signupSuccess" hidden></p>
+        <form id="signupForm" novalidate>
+          <div class="form-group">
+            <label for="signupEmail">Email</label>
+            <input type="email" id="signupEmail" autocomplete="email" required>
+          </div>
+          <div class="form-group">
+            <label for="signupPassword">Password <span class="field-hint">(min 9 characters)</span></label>
+            <input type="password" id="signupPassword" autocomplete="new-password" minlength="9" required>
+          </div>
+          <div class="form-group">
+            <label for="signupConfirm">Confirm Password</label>
+            <input type="password" id="signupConfirm" autocomplete="new-password" minlength="9" required>
+          </div>
+          <button type="submit" class="auth-submit" id="signupSubmit">Create Account</button>
+        </form>
+      </div>
+
+      <!-- FORGOT PASSWORD — step 1: request a code -->
+      <div class="auth-panel" id="panel-forgot-request" hidden>
+        <button type="button" class="auth-back" id="forgotBackToSignin1">&larr; Back to sign in</button>
+        <p class="auth-note">
+          Enter the email on your account. If it's registered, we'll send a
+          6-digit code that's valid for 5 minutes.
+        </p>
+        <p class="auth-msg error" id="forgotRequestError" hidden></p>
+        <p class="auth-msg success" id="forgotRequestSuccess" hidden></p>
+        <form id="forgotRequestForm" novalidate>
+          <div class="form-group">
+            <label for="forgotEmail">Email</label>
+            <input type="email" id="forgotEmail" autocomplete="email" required>
+          </div>
+          <button type="submit" class="auth-submit" id="forgotRequestSubmit">Send Code</button>
+        </form>
+      </div>
+
+      <!-- FORGOT PASSWORD — step 2: enter + verify the code -->
+      <div class="auth-panel" id="panel-forgot-otp" hidden>
+        <button type="button" class="auth-back" id="forgotBackToSignin2">&larr; Back to sign in</button>
+        <p class="auth-note" id="forgotOtpNote">
+          Enter the code we sent.
+        </p>
+        <p class="auth-msg error" id="forgotOtpError" hidden></p>
+        <p class="auth-msg success" id="forgotOtpSuccess" hidden></p>
+        <form id="forgotOtpForm" novalidate>
+          <div class="form-group">
+            <label for="forgotOtp">6-digit code</label>
+            <input type="text" id="forgotOtp" class="otp-input" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" required>
+          </div>
+          <p class="otp-timer" id="otpTimer">Expires in 5:00</p>
+          <button type="submit" class="auth-submit" id="forgotOtpSubmit">Verify Code</button>
+          <div class="auth-link-row" style="text-align:center; margin-top:0.85rem;">
+            <button type="button" class="otp-resend" id="otpResend" disabled>Resend code</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- FORGOT PASSWORD — step 3: code verified, set a new password -->
+      <div class="auth-panel" id="panel-forgot-reset" hidden>
+        <button type="button" class="auth-back" id="forgotBackToSignin3">&larr; Back to sign in</button>
+        <p class="auth-note">
+          Code verified. Choose a new password.
+        </p>
+        <p class="auth-msg error" id="forgotResetError" hidden></p>
+        <p class="otp-timer" id="resetTimer">Expires in 5:00</p>
+        <form id="forgotResetForm" novalidate>
+          <div class="form-group">
+            <label for="forgotNewPassword">New password <span class="field-hint">(min 9 characters)</span></label>
+            <input type="password" id="forgotNewPassword" autocomplete="new-password" minlength="9" required>
+          </div>
+          <div class="form-group">
+            <label for="forgotConfirmPassword">Confirm new password</label>
+            <input type="password" id="forgotConfirmPassword" autocomplete="new-password" minlength="9" required>
+          </div>
+          <button type="submit" class="auth-submit" id="forgotResetSubmit">Reset Password</button>
+        </form>
+      </div>
+    </div>
+
+    <p class="auth-footer">&copy; 2026 Thinkhealth Data Hub</p>
+  </div>
+
+  <script src="config.js?v=45"></script>
+  <script src="auth.js?v=44" defer></script>
+</body>
+</html>

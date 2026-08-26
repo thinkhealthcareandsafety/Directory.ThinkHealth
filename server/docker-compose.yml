@@ -1,0 +1,34 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: thinkhealth
+      POSTGRES_PASSWORD: thinkhealth
+      POSTGRES_DB: thinkhealth_hotels
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U thinkhealth -d thinkhealth_hotels"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DATABASE_URL: postgres://thinkhealth:thinkhealth@db:5432/thinkhealth_hotels
+      API_AUTH_TOKEN: ${API_AUTH_TOKEN}
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:

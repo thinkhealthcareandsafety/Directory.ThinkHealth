@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Thinkhealth - Hotel Records Hub</title>
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="icon" href="favicon-16.png" type="image/png" sizes="16x16">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="stylesheet" href="style.css?v=53">
+</head>
+<body>
+
+
+
+  <!-- ============================================================
+       HEADER
+       ============================================================ -->
+  <header class="appbar">
+    <div class="appbar-inner">
+
+      <div class="appbar-left">
+        <a class="brand" href="index.html" aria-label="Thinkhealth Hotel Database — home">
+          <img src="logo.png?v=54" alt="" class="brand-mark" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+          <span class="brand-fallback" style="display:none;">Thinkhealth</span>
+          <span class="brand-divider" aria-hidden="true"></span>
+          <span class="brand-title">Hotel Database</span>
+        </a>
+      </div>
+
+      <nav class="appbar-center" aria-label="Primary">
+        <a href="#" class="navlink is-active" aria-current="page">Directory</a>
+        <a href="#" class="navlink" id="analyticsNavLink">Analytics</a>
+      </nav>
+
+      <div class="appbar-right">
+        <!-- Admin tools read as one cluster, separated from the account
+             controls by a rule, so the bar has two obvious halves rather
+             than a row of equally-weighted buttons. -->
+        <div class="appbar-tools" id="appbarTools">
+          <button class="btn btn-ghost btn-sm" id="accessRequestsBtn" hidden>Access Requests</button>
+          <button class="btn btn-ghost btn-sm" id="editRequestsBtn" hidden>
+            Edit Requests
+            <span class="countpill" id="editRequestsBadge" hidden>0</span>
+          </button>
+          <button class="btn btn-ghost btn-sm" id="manageUsersBtn" hidden>Manage Users</button>
+        </div>
+
+        <span class="appbar-sep" id="appbarSep" aria-hidden="true" hidden></span>
+
+        <div class="usermenu">
+          <button class="usermenu-trigger" id="userMenuBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Account menu">
+            <span class="avatar" id="userAvatar" aria-hidden="true">–</span>
+            <svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="usermenu-panel" id="userMenuPanel" role="menu" hidden>
+            <div class="usermenu-head">
+              <span id="userStatus" class="usermenu-email"></span>
+            </div>
+            <button class="usermenu-item" id="requestAccessBtn" role="menuitem" hidden>Request Admin Access</button>
+            <button class="usermenu-item usermenu-item-danger" id="logoutBtn" role="menuitem" hidden>Sign out</button>
+          </div>
+        </div>
+
+        <button class="btn btn-primary btn-sm" id="openAddModalBtn" hidden>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          <span>Add Hotel</span>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ============================================================
+       HERO
+       ============================================================ -->
+  <section class="hero">
+    <!-- Background video layer. One continuous clip, audio stripped, looped
+         natively. It was previously split into two files played back-to-back,
+         which flickered at the seam: swapping <source> forces video.load(),
+         and that blanks the frame buffer for a moment. Keep it as one file.
+         muted+playsinline are required for autoplay; aria-hidden as decoration. -->
+    <img class="bg-fallback" src="hero-poster.webp?v=51" alt="" aria-hidden="true"
+         fetchpriority="high" decoding="async">
+    <video class="bg-video" autoplay muted playsinline disablepictureinpicture
+           preload="none" poster="hero-poster.jpg?v=51"
+           data-src="hero-loop.mp4?v=51"
+           aria-hidden="true" tabindex="-1">
+    </video>
+
+    <div class="hero-inner">
+      <p class="hero-eyebrow" id="heroEyebrow">Pan-India Hotel Directory</p>
+      <h1 class="hero-title">Hotel Directory for India's Leading Properties</h1>
+      <p class="hero-sub">Explore, manage and maintain a comprehensive database of hotels across India.</p>
+
+      <dl class="hero-stats">
+        <div class="hero-stat"><dt>Properties</dt><dd id="statProperties">—</dd></div>
+        <div class="hero-stat"><dt>Cities</dt><dd id="statCities">—</dd></div>
+        <div class="hero-stat"><dt>Indian States</dt><dd id="statStates">—</dd></div>
+        <div class="hero-stat"><dt>Union Territories</dt><dd id="statUTs">—</dd></div>
+        <div class="hero-stat"><dt>Countries</dt><dd id="statCountries">—</dd></div>
+        <div class="hero-stat"><dt>Hotel Brands</dt><dd id="statBrands">—</dd></div>
+      </dl>
+
+      <p class="hero-hint">Search, filter and maintain contact records for every property below</p>
+    </div>
+
+    <a class="hero-scroll" href="#mainContent" id="heroScrollBtn" aria-label="Scroll to the directory">
+      <span>Browse directory</span>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>
+    </a>
+  </section>
+
+  <!-- ============================================================
+       DIRECTORY
+       ============================================================ -->
+  <main class="shell" id="mainContent">
+
+    <!-- Filter rail -->
+    <aside class="rail" id="filterRail" aria-label="Filters">
+      <div class="rail-head">
+        <h2 class="rail-title">Filters</h2>
+        <button type="button" class="rail-clear" id="clearFiltersBtn" hidden>Clear all</button>
+        <button type="button" class="rail-close" id="railCloseBtn" aria-label="Close filters">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <p class="rail-activecount" id="railActiveCount" hidden></p>
+
+      <div class="fgroup">
+        <label class="favtoggle" for="favouritesOnlyToggle">
+          <input type="checkbox" id="favouritesOnlyToggle">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M20.8 8.6c0 5-8.8 10.2-8.8 10.2S3.2 13.6 3.2 8.6a4.8 4.8 0 018.8-2.7 4.8 4.8 0 018.8 2.7z"/>
+          </svg>
+          <span>Favourites only</span>
+        </label>
+
+        <label class="favtoggle" for="upcomingOnlyToggle">
+          <input type="checkbox" id="upcomingOnlyToggle">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M12 7v5l3 2"/><circle cx="12" cy="12" r="9"/>
+          </svg>
+          <span>Upcoming only</span>
+          <span class="favtoggle-count" id="upcomingCount" hidden></span>
+        </label>
+      </div>
+
+      <div class="fgroup">
+        <label class="flabel" for="contactFilter">Contact Status</label>
+        <select id="contactFilter" class="fselect">
+          <option value="all">All Hotels</option>
+          <option value="available">Contact available</option>
+          <option value="none">No contact information</option>
+        </select>
+      </div>
+
+      <div class="fgroup">
+        <label class="flabel" for="starFilter">Star Rating</label>
+        <select id="starFilter" class="fselect">
+          <option value="all">All Ratings</option>
+        </select>
+      </div>
+
+      <div class="fgroup">
+        <label class="flabel" for="brandFilter">Brand</label>
+        <select id="brandFilter" class="fselect">
+          <option value="all">All Brands</option>
+        </select>
+      </div>
+
+      <!-- Country -> State -> City, each narrowing the next. -->
+      <div class="fgroup fgroup-stack">
+        <span class="flabel">Location</span>
+        <select id="countryFilter" class="fselect" aria-label="Country">
+          <option value="all">All Countries</option>
+        </select>
+        <select id="stateFilter" class="fselect" aria-label="State">
+          <option value="all">All States</option>
+        </select>
+        <select id="cityFilter" class="fselect" aria-label="City">
+          <option value="all">All Cities</option>
+        </select>
+      </div>
+
+      <div class="fgroup">
+        <label class="flabel" for="hospitalityGroupFilter">Hospitality Group</label>
+        <select id="hospitalityGroupFilter" class="fselect">
+          <option value="all">All Groups</option>
+        </select>
+      </div>
+    </aside>
+
+    <div class="rail-scrim" id="railScrim" hidden></div>
+
+    <!-- Results -->
+    <section class="results" aria-label="Hotel directory">
+
+      <div class="dirsearch" id="searchField">
+        <svg class="dirsearch-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>
+        </svg>
+        <input type="search" id="searchInput" autocomplete="off" spellcheck="false"
+               placeholder="Search hotels, cities, brands, contacts or Hotel ID…"
+               aria-label="Search hotels">
+        <button type="button" class="dirsearch-clear" id="searchClearBtn" aria-label="Clear search" hidden>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+        <kbd class="dirsearch-kbd" id="searchKbd" aria-hidden="true">/</kbd>
+      </div>
+
+      <div class="toolbar">
+        <div class="toolbar-lead">
+          <h2 class="toolbar-count" id="resultsCount">Loading…</h2>
+          <button type="button" class="btn btn-ghost btn-sm toolbar-filterbtn" id="railOpenBtn">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M3 5h18M6 12h12M10 19h4"/>
+            </svg>
+            <span>Filters</span>
+            <span class="countpill" id="filterCountBadge" hidden>0</span>
+          </button>
+        </div>
+
+        <div class="toolbar-trail">
+          <!-- Real <select>s stay the source of truth — fetchHotels() reads
+               .value from these unchanged. The pill buttons below just drive
+               them, the same pattern combobox.js uses for the filter rail. -->
+          <select id="sortByFilter" class="sr-only">
+            <option value="hotel_id">Hotel ID</option>
+            <option value="name" selected>Name</option>
+            <option value="brand">Brand</option>
+            <option value="establishment_year">Year Established</option>
+            <option value="star_rating">Star Rating</option>
+            <option value="city">City</option>
+            <option value="state">State</option>
+          </select>
+          <select id="sortDirFilter" class="sr-only">
+            <option value="asc" selected>Ascending</option>
+            <option value="desc">Descending</option>
+          </select>
+
+          <span class="toolbar-label" id="sortPillsLabel">Alphabetical filters</span>
+          <div class="pillbar" role="group" aria-labelledby="sortPillsLabel" id="sortByPills"></div>
+          <div class="pillbar" role="group" aria-label="Sort direction" id="sortDirPills"></div>
+
+          <div class="viewtoggle" role="group" aria-label="View mode">
+            <button type="button" class="viewbtn is-active" id="viewGridBtn" aria-pressed="true" aria-label="Grid view">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
+                <rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
+              </svg>
+            </button>
+            <button type="button" class="viewbtn" id="viewListBtn" aria-pressed="false" aria-label="List view">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M4 6h16M4 12h16M4 18h16"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div id="hotelGrid" class="grid" aria-live="polite" aria-busy="false">
+        <!-- cards / skeletons / empty states injected by script.js -->
+      </div>
+
+      <nav id="paginationBar" class="pager" aria-label="Pagination">
+        <button type="button" class="btn btn-ghost btn-sm" id="prevPageBtn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+          <span>Previous</span>
+        </button>
+
+        <span id="pageIndicator" class="pager-label">Page 1</span>
+
+        <form id="pageJumpForm" class="pager-jump">
+          <label for="pageJumpInput" class="sr-only">Jump to page</label>
+          <input type="number" id="pageJumpInput" min="1" step="1" inputmode="numeric"
+                 aria-label="Jump to page" placeholder="Go to…">
+          <button type="submit" class="btn btn-ghost btn-sm">Go</button>
+        </form>
+
+        <button type="button" class="btn btn-ghost btn-sm" id="nextPageBtn">
+          <span>Next</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+
+        <label class="pager-pagesize">
+          <span class="sr-only">Hotels per page</span>
+          <select id="pageSizeSelect" class="fselect fselect-sm">
+            <option value="10">10 / page</option>
+            <option value="20" selected>20 / page</option>
+            <option value="50">50 / page</option>
+            <option value="100">100 / page</option>
+          </select>
+        </label>
+      </nav>
+
+    </section>
+  </main>
+
+  <!-- ============================================================
+       SITE FOOTER
+       Every href here is a placeholder (data-link names what it wants) —
+       swap the "#" for the real URL and delete the data-link attribute.
+       The accreditation badges fall back to a text chip until the image
+       files exist, so a missing asset degrades rather than breaking.
+       ============================================================ -->
+  <footer class="sitefooter">
+    <div class="sitefooter-inner">
+
+      <div class="footer-top">
+        <div class="footer-brandcol">
+          <img src="logo.png?v=54" alt="Thinkhealth" class="footer-logo"
+               onerror="this.style.display='none'">
+          <p class="footer-tagline">
+            With 50+ global brand partnerships and 70,000+ individuals trained,
+            we help organizations across industries elevate their Health.
+          </p>
+
+          <ul class="footer-social" aria-label="Thinkhealth on social media">
+            <li><a href="https://www.instagram.com/think_health_india/?igsh=OTVmaGF0OWtiOHhw" data-link="instagram" target="_blank" rel="noopener" aria-label="Instagram">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                <rect x="3" y="3" width="18" height="18" rx="5"/>
+                <circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1.1" fill="currentColor" stroke="none"/>
+              </svg></a></li>
+            <li><a href="https://api.whatsapp.com/send/?phone=919356080806&text&type=phone_number&app_absent=0" data-link="whatsapp" target="_blank" rel="noopener" aria-label="WhatsApp">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                <path d="M20.5 11.6a8.5 8.5 0 01-12.4 7.6L3.5 20.5l1.4-4.5a8.5 8.5 0 1115.6-4.4z"/>
+                <path d="M9 9.2c.3-.7.6-.7.9-.7h.6c.2 0 .5 0 .7.5l.7 1.7c.1.3 0 .5-.1.7l-.4.5c-.1.2-.3.3-.1.6a6 6 0 002.8 2.4c.3.1.5.1.7-.1l.5-.6c.2-.2.4-.2.6-.1l1.6.8c.3.1.4.3.4.5 0 .5-.3 1.4-1.3 1.6-1 .3-2.4.1-4.4-1.1a9 9 0 01-3.3-3.6c-.5-1-.5-2.2.1-3.1z" fill="currentColor" stroke="none"/>
+              </svg></a></li>
+            <li><a href="https://www.linkedin.com/in/thinkhealth/" data-link="linkedin" target="_blank" rel="noopener" aria-label="LinkedIn">
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M4.5 3.5a2 2 0 100 4 2 2 0 000-4zM2.8 9.2h3.4V21H2.8zM9.2 9.2h3.3v1.6h.05c.46-.83 1.6-1.7 3.25-1.7 3.5 0 4.2 2.2 4.2 5.1V21h-3.4v-5.2c0-1.25 0-2.85-1.8-2.85s-2.05 1.35-2.05 2.75V21H9.2z"/>
+              </svg></a></li>
+            <li><a href="https://www.facebook.com/people/Think-Health-Care-Pune/61560270224373/" data-link="facebook" target="_blank" rel="noopener" aria-label="Facebook">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                <path d="M15.5 3h-2.2A3.8 3.8 0 009.5 6.8V9.5H7.2V13h2.3v8h3.5v-8h2.4l.6-3.5h-3V7c0-.6.4-1 1-1h2z" fill="currentColor" stroke="none"/>
+              </svg></a></li>
+            <li><a href="https://www.youtube.com/playlist?list=PLYroJ0G3J6hg-FkVxvznb8En_flcBmrit" data-link="youtube" target="_blank" rel="noopener" aria-label="YouTube">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                <rect x="2.5" y="5.5" width="19" height="13" rx="3.5"/>
+                <path d="M10.3 9.6l4.6 2.4-4.6 2.4z" fill="currentColor" stroke="none"/>
+              </svg></a></li>
+          </ul>
+        </div>
+
+        <ul class="footer-accreditations" aria-label="Accreditations">
+          <li><img src="badge-iso.png" alt="ISO 9001:2015 Certified Company"
+                   onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'accred-fallback',textContent:'ISO 9001:2015'}))"></li>
+          <li><img src="badge-aha.png" alt="American Heart Association"
+                   onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'accred-fallback',textContent:'American Heart Association'}))"></li>
+          <li><img src="badge-msme.png" alt="MSME — Micro, Small &amp; Medium Enterprises"
+                   onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'accred-fallback',textContent:'MSME'}))"></li>
+          <li><img src="badge-make-in-india.png" alt="Make in India"
+                   onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'accred-fallback',textContent:'Make in India'}))"></li>
+        </ul>
+      </div>
+
+      <div class="footer-cols">
+        <nav class="footer-col" aria-labelledby="fc-quick">
+          <h3 class="footer-coltitle" id="fc-quick">Quick Links</h3>
+          <ul class="footer-list footer-list-lg">
+            <li><a href="#" data-link="home">Home</a></li>
+            <li><a href="https://www.thinkhealth.in/about-us" data-link="about-us" target="_blank" rel="noopener">About Us</a></li>
+            <li><a href="https://www.thinkhealth.in/trainings" data-link="trainings" target="_blank" rel="noopener">Trainings</a></li>
+            <li><a href="#" data-link="contact-us">Contact Us</a></li>
+            <li><a href="https://www.buyaedindia.com/category/all-products" data-link="shop" target="_blank" rel="noopener">Shop</a></li>
+            <li><a href="https://www.thinkhealth.in/customer-reviews" data-link="customer-reviews" target="_blank" rel="noopener">Customer Reviews</a></li>
+          </ul>
+        </nav>
+
+        <nav class="footer-col" aria-labelledby="fc-training">
+          <h3 class="footer-coltitle" id="fc-training">Trainings</h3>
+          <ul class="footer-list">
+            <li><a href="https://www.thinkhealth.in/trainings" data-link="cpr-aed-training" target="_blank" rel="noopener">CPR &amp; AED Training</a></li>
+            <li><a href="https://www.thinkhealth.in/trainings" data-link="first-aid-training" target="_blank" rel="noopener">First Aid Training</a></li>
+            <li><a href="https://www.thinkhealth.in/trainings" data-link="womens-safety-training" target="_blank" rel="noopener">Women's Safety and Self Defense Training</a></li>
+            <li><a href="https://www.thinkhealth.in/trainings" data-link="fire-safety-training" target="_blank" rel="noopener">Fire Safety and Evacuation Training</a></li>
+            <li><a href="https://www.thinkhealth.in/trainings" data-link="emergency-response-training" target="_blank" rel="noopener">Emergency Response, Trauma and Triage Training</a></li>
+          </ul>
+        </nav>
+
+        <nav class="footer-col" aria-labelledby="fc-sub">
+          <h3 class="footer-coltitle" id="fc-sub">Subsidiary</h3>
+          <ul class="footer-list footer-list-lg">
+            <li><a href="https://www.buyaedindia.com/" data-link="buyaedindia" target="_blank" rel="noopener">BuyAEDIndia</a></li>
+            <li><a href="https://www.aedsmartx.com/" data-link="aedsmartx" target="_blank" rel="noopener">AEDSmartx</a></li>
+          </ul>
+        </nav>
+
+        <div class="footer-col" aria-labelledby="fc-contact">
+          <h3 class="footer-coltitle" id="fc-contact">Contact Us</h3>
+          <ul class="footer-contact">
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <path d="M12 21s7-6.3 7-11a7 7 0 10-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>
+              </svg>
+              <span>302 Rainbow Plaza, Pimple Saudagar, Near Shivar Garden, Pune 411027</span>
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3.5 6.5l8.5 6 8.5-6"/>
+              </svg>
+              <span>
+                <a href="mailto:sales@thinkhealth.in">sales@thinkhealth.in</a><br>
+                <a href="mailto:training@thinkhealth.in">training@thinkhealth.in</a>
+              </span>
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <path d="M5 3.5h3l1.5 4-2 1.5a12 12 0 006.5 6.5l1.5-2 4 1.5v3a2 2 0 01-2.2 2A17 17 0 013 5.7 2 2 0 015 3.5z"/>
+              </svg>
+              <span class="footer-phones">
+                <a href="tel:+918007700006">+91 80077 00006</a>,
+                <a href="tel:+919356080806">+91 93560 80806</a>
+                <br>
+                <a href="tel:+919823101908">+91 98231 01908</a>,
+                <a href="tel:+918007000884">+91 80070 00884</a>
+              </span>
+            </li>
+          </ul>
+          <a class="footer-cta" href="#" data-link="get-in-touch">Get In Touch</a>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <p>&copy; <span id="footerYear">2026</span> Thinkhealth. All rights reserved.</p>
+      </div>
+
+    </div>
+  </footer>
+
+
+  <!-- 1. FULL DETAIL VIEW MODAL -->
+  <div id="detailModal" class="modal-overlay">
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <div class="header-badge-group">
+          <span class="badge badge-id" id="viewHotelId">TH00001</span>
+          <span class="badge badge-star" id="viewStarRating"></span>
+          <span class="badge" id="viewContactStatus">Contact Status</span>
+        </div>
+        <button class="close-modal" id="closeDetailModalBtn">&times;</button>
+      </div>
+
+      <div class="detail-body">
+        <h2 id="viewHotelName" class="detail-title">Hotel Name</h2>
+        <p class="detail-location">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+            <path d="M12 21s7-6.3 7-11a7 7 0 10-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>
+          </svg><span id="viewLocation">Location</span>
+        </p>
+
+        <!-- Property Overview -->
+        <div class="detail-section">
+          <h3>Property Overview</h3>
+          <div class="detail-grid">
+            <div><strong>Brand:</strong> <span id="viewBrand">-</span></div>
+            <div><strong>Group:</strong> <span id="viewGroup">-</span></div>
+            <div><strong>Hospitality Parent:</strong> <span id="viewParent">-</span></div>
+            <div><strong>Est. Year:</strong> <span id="viewEstYear">-</span></div>
+            <div><strong>Category:</strong> <span id="viewCategory">-</span></div>
+            <div><strong>Last CPR Training:</strong> <span id="viewCprDate">-</span></div>
+          </div>
+        </div>
+
+        <!-- On-site equipment. Ticked live by admin/owner; read-only badges
+             for a viewer, who has no write path to this. -->
+        <div class="detail-section">
+          <div class="section-head">
+            <h3>Products on site</h3>
+            <span class="products-status" id="productsStatus" hidden></span>
+          </div>
+          <ul class="products-grid" id="productsGrid"></ul>
+          <p class="products-note" id="productsNote" hidden>Only an admin can change this list.</p>
+        </div>
+
+        <!-- Departmental Contacts Section -->
+        <div class="detail-section">
+          <h3>Departmental Contacts</h3>
+          <div class="contacts-grid contacts-grid-2x2">
+            <div class="contact-card">
+              <h4>Security Head</h4>
+              <p><strong>Name:</strong> <span id="viewSecName">-</span></p>
+              <p><strong>Email:</strong> <span id="viewSecEmail">-</span></p>
+              <p><strong>Contact:</strong> <span id="viewSecPhone">-</span></p>
+              <p><strong>LinkedIn:</strong> <span id="viewSecLinkedIn">-</span></p>
+              <button class="btn-contact-delete" id="deleteSecBtn" data-role="security_head" hidden>Delete Contact</button>
+            </div>
+
+            <div class="contact-card">
+              <h4>General Manager</h4>
+              <p><strong>Name:</strong> <span id="viewGmName">-</span></p>
+              <p><strong>Email:</strong> <span id="viewGmEmail">-</span></p>
+              <p><strong>Contact:</strong> <span id="viewGmPhone">-</span></p>
+              <p><strong>LinkedIn:</strong> <span id="viewGmLinkedIn">-</span></p>
+              <button class="btn-contact-delete" id="deleteGmBtn" data-role="general_manager" hidden>Delete Contact</button>
+            </div>
+
+            <div class="contact-card">
+              <h4>Purchase Manager</h4>
+              <p><strong>Name:</strong> <span id="viewPurName">-</span></p>
+              <p><strong>Email:</strong> <span id="viewPurEmail">-</span></p>
+              <p><strong>Contact:</strong> <span id="viewPurPhone">-</span></p>
+              <p><strong>LinkedIn:</strong> <span id="viewPurLinkedIn">-</span></p>
+              <button class="btn-contact-delete" id="deletePurBtn" data-role="purchase_manager" hidden>Delete Contact</button>
+            </div>
+
+            <div class="contact-card">
+              <h4>Other Details</h4>
+              <p><strong>Name:</strong> <span id="viewOthName">-</span></p>
+              <p><strong>Email:</strong> <span id="viewOthEmail">-</span></p>
+              <p><strong>Contact:</strong> <span id="viewOthPhone">-</span></p>
+              <p><strong>LinkedIn:</strong> <span id="viewLinkedIn">-</span></p>
+              <button class="btn-contact-delete" id="deleteOthBtn" data-role="other_contact" hidden>Delete Contact</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions modal-actions-full">
+        <button class="btn btn-delete" id="detailDeleteBtn" hidden><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg><span>Delete Record</span></button>
+        <button class="btn btn-edit" id="detailEditBtn" hidden><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 20h4L19 9a2.1 2.1 0 10-3-3L5 17z"/></svg><span>Edit Record</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACCESS REQUESTS MODAL (owner only) -->
+  <div id="accessRequestsModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Access Requests</h2>
+        <button class="close-modal" id="closeAccessRequestsModalBtn">&times;</button>
+      </div>
+      <div id="accessRequestsList">
+        <p class="access-requests-empty">Loading...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. EDIT / ADD FORM MODAL -->
+  <div id="hotelModal" class="modal-overlay">
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <h2 id="modalTitle">Add New Hotel Record</h2>
+        <button class="close-modal" id="closeModalBtn">&times;</button>
+      </div>
+      <form id="hotelForm">
+        <input type="hidden" id="formIndex">
+
+        <!-- Basic Hotel Information -->
+        <fieldset class="form-fieldset" id="basicDetailsFieldset">
+          <legend>Basic Hotel Details</legend>
+          <p class="fieldset-lock-note" id="basicDetailsLockNote" hidden>
+            These identify the property and can only be changed by an admin.
+            You can still suggest corrections to the contact details below.
+          </p>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="hotelId">Hotel ID *</label>
+              <input type="text" id="hotelId" placeholder="e.g., TH00005" required
+                     autocomplete="off" spellcheck="false"
+                     pattern="TH[0-9]{5}" title="Format: TH followed by 5 digits, e.g. TH02275">
+            </div>
+            <div class="form-group">
+              <label for="starRating">Star Rating</label>
+              <select id="starRating">
+                <option value="">Unrated</option>
+                <option value="5">5 Star</option>
+                <option value="4">4 Star</option>
+                <option value="3">3 Star</option>
+                <option value="2">2 Star</option>
+                <option value="1">1 Star</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="hotelName">Hotel Name *</label>
+            <input type="text" id="hotelName" placeholder="e.g., Grand Hyatt Mumbai" required>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="brand">Brand</label>
+              <input type="text" id="brand" placeholder="e.g., Hyatt">
+            </div>
+            <div class="form-group">
+              <label for="group">Management Group</label>
+              <input type="text" id="group" placeholder="e.g., Hyatt Hotels Corp">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="hospitalityGroup">Hospitality Parent Entity</label>
+              <input type="text" id="hospitalityGroup" placeholder="e.g., Accor S.A.">
+            </div>
+            <div class="form-group">
+              <label for="category">Category</label>
+              <input type="text" id="category" placeholder="e.g., Luxury / Resort">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="city">City *</label>
+              <input type="text" id="city" placeholder="e.g., Mumbai" required>
+            </div>
+            <div class="form-group">
+              <label for="state">State</label>
+              <input type="text" id="state" placeholder="e.g., Maharashtra">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="establishmentYear">Est. Year</label>
+              <input type="number" id="establishmentYear" placeholder="2020">
+            </div>
+            <div class="form-group">
+              <label for="lastCprTraining">Last CPR Training Date</label>
+              <input type="text" id="lastCprTraining" placeholder="e.g., 2025-11-15 or N/A">
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- Departmental Contacts -->
+        <fieldset class="form-fieldset">
+          <legend>Security Head Contact</legend>
+          <div class="form-row-3">
+            <div class="form-group">
+              <label for="secName">Full Name</label>
+              <input type="text" id="secName" placeholder="e.g., Ganesh Tayade">
+            </div>
+            <div class="form-group">
+              <label for="secEmail">Email Address</label>
+              <input type="email" id="secEmail" placeholder="e.g., ganesh@hotel.com">
+            </div>
+            <div class="form-group">
+              <label for="secPhone">Contact Number</label>
+              <input type="text" id="secPhone" placeholder="e.g., +91 9876543210">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="secLinkedIn">LinkedIn Profile URL</label>
+            <input type="url" id="secLinkedIn" placeholder="https://linkedin.com/in/...">
+          </div>
+        </fieldset>
+
+        <fieldset class="form-fieldset">
+          <legend>General Manager Contact</legend>
+          <div class="form-row-3">
+            <div class="form-group">
+              <label for="gmName">Full Name</label>
+              <input type="text" id="gmName" placeholder="Full Name">
+            </div>
+            <div class="form-group">
+              <label for="gmEmail">Email Address</label>
+              <input type="email" id="gmEmail" placeholder="gm@hotel.com">
+            </div>
+            <div class="form-group">
+              <label for="gmPhone">Contact Number</label>
+              <input type="text" id="gmPhone" placeholder="Contact Number">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="gmLinkedIn">LinkedIn Profile URL</label>
+            <input type="url" id="gmLinkedIn" placeholder="https://linkedin.com/in/...">
+          </div>
+        </fieldset>
+
+        <fieldset class="form-fieldset">
+          <legend>Purchase Manager Contact</legend>
+          <div class="form-row-3">
+            <div class="form-group">
+              <label for="purName">Full Name</label>
+              <input type="text" id="purName" placeholder="Full Name">
+            </div>
+            <div class="form-group">
+              <label for="purEmail">Email Address</label>
+              <input type="email" id="purEmail" placeholder="purchase@hotel.com">
+            </div>
+            <div class="form-group">
+              <label for="purPhone">Contact Number</label>
+              <input type="text" id="purPhone" placeholder="Contact Number">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="purLinkedIn">LinkedIn Profile URL</label>
+            <input type="url" id="purLinkedIn" placeholder="https://linkedin.com/in/...">
+          </div>
+        </fieldset>
+
+        <fieldset class="form-fieldset">
+          <legend>Other Contact / General Details</legend>
+          <div class="form-row-3">
+            <div class="form-group">
+              <label for="othName">Full Name</label>
+              <input type="text" id="othName" placeholder="Full Name">
+            </div>
+            <div class="form-group">
+              <label for="othEmail">Email Address</label>
+              <input type="email" id="othEmail" placeholder="info@hotel.com">
+            </div>
+            <div class="form-group">
+              <label for="othPhone">Contact Number</label>
+              <input type="text" id="othPhone" placeholder="Contact Number">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="linkedIn">LinkedIn Profile URL</label>
+            <input type="url" id="linkedIn" placeholder="https://linkedin.com/in/...">
+          </div>
+        </fieldset>
+
+        <p id="formErrorMsg" class="form-error" hidden></p>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="cancelModalBtn">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="saveHotelBtn">Save Record</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <footer>
+    <p>&copy; 2026 Thinkhealth Data Hub. All rights reserved.</p>
+  </footer>
+
+  <!-- USER MANAGEMENT MODAL (owner only) -->
+  <div id="userMgmtModal" class="modal-overlay">
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <h2>Manage Users</h2>
+        <button class="close-modal" id="closeUserMgmtModalBtn">&times;</button>
+      </div>
+      <div class="user-mgmt-tabs">
+        <button class="user-tab active" data-tab="accounts">All Accounts</button>
+        <button class="user-tab" data-tab="activity">Recent Activity</button>
+      </div>
+      <div id="userMgmtAccounts" class="user-tab-panel">
+        <p class="access-requests-empty">Loading...</p>
+      </div>
+      <div id="userMgmtActivity" class="user-tab-panel" hidden>
+        <p class="access-requests-empty">Loading...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDIT REQUESTS MODAL (admin/owner) — viewer-submitted hotel edits -->
+  <div id="editRequestsModal" class="modal-overlay">
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <h2>Edit Requests</h2>
+        <button class="close-modal" id="closeEditRequestsModalBtn">&times;</button>
+      </div>
+      <div id="editRequestsList">
+        <p class="access-requests-empty">Loading...</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="config.js?v=45"></script>
+  <script src="combobox.js?v=52"></script>
+  <script src="script.js?v=53" defer></script>
+</body>
+</html>
