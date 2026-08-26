@@ -1,0 +1,61 @@
+# Render Blueprint — creates all three pieces in one pass:
+# https://dashboard.render.com/blueprints -> New Blueprint Instance
+#
+# After the first deploy, two values below (marked sync: false) need to be
+# filled in by hand from the Render dashboard, because they depend on URLs
+# Render only assigns once the services exist:
+#   - thinkhealth-api  -> CORS_ORIGINS = the static site's URL
+#   - thinkhealth-hub  -> config.js's API_BASE = the API service's URL
+#
+# SMTP_* are marked sync: false too — never put real credentials in this
+# file. Enter them in the Render dashboard after deploy.
+
+databases:
+  - name: thinkhealth-db
+    plan: free
+    databaseName: thinkhealth_hotels
+    user: thinkhealth
+
+services:
+  - type: web
+    name: thinkhealth-api
+    runtime: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install && npm run migrate:up
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: thinkhealth-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 8h
+      - key: TRUST_PROXY
+        value: "1"
+      - key: CORS_ORIGINS
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+
+  - type: web
+    name: thinkhealth-hub
+    runtime: static
+    plan: free
+    rootDir: .
+    buildCommand: ""
+    staticPublishPath: .
+    # This is a multi-page site (index.html, login.html), not a client-side-
+    # routed SPA — no catch-all rewrite. Plain static serving is correct.
