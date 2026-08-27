@@ -53,7 +53,6 @@ services:
   - type: web
     name: thinkhealth-hub
     runtime: static
-    plan: free
     rootDir: .
     buildCommand: ""
     staticPublishPath: .
