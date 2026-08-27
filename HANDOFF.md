@@ -6,7 +6,14 @@ code itself. Server-specific detail (endpoints, schema) lives in
 and doubles as a context-transfer doc for handing this project to a fresh
 conversation.
 
-Last updated: 2026-08-25.
+Last updated: 2026-08-26.
+
+**Repo**: https://github.com/thinkhealthcareandsafety/Directory.ThinkHealth
+(private). Pushed 2026-08-26 — `git init` done in this session, `.gitignore`
+verified to exclude `server/.env` (real secrets) and the raw video source
+before the first commit. `render.yaml` at the repo root is a Render
+Blueprint for one-pass deploy (Postgres + API + static site) — not yet
+deployed as of this writing.
 
 ---
 
@@ -41,6 +48,33 @@ cd "C:/Users/11/Desktop/HTML CSS/Thinkhealth" && python -m http.server 8080
 Then open `http://localhost:8080` — it redirects to `login.html` if you have
 no session.
 
+## Deployment (live since 2026-08-27)
+
+| | |
+| --- | --- |
+| Frontend | https://thinkhealth-hub.onrender.com |
+| API | https://thinkhealth-api.onrender.com |
+| Repo | https://github.com/thinkhealthcareandsafety/Directory.ThinkHealth (private) |
+| Host | Render — `render.yaml` at repo root is the Blueprint (Postgres + API + static site) |
+
+Real production data — deploy changes carefully. The 2,274 hotels and the
+three real accounts above were migrated once via `pg_dump`/`\copy` from the
+local dev database (excluding two test hotel rows, `TH02275` and `TH99500`,
+that never should have been in the local data either).
+
+**Case sensitivity**: this was built and tested entirely on Windows, which
+is case-insensitive for filenames — Render's Linux filesystem is not. One
+bug already hit from this: `index.html` referenced `style.css` while the
+tracked file is `Style.css`, which 404'd silently in production only. Any
+new asset reference should be checked for exact-case match against
+`git ls-files`, not just "does it open locally."
+
+**Env vars are set directly in the Render dashboard**, not in the repo —
+`server/.env` (with the real Gmail SMTP password and JWT secret) is
+gitignored and stays local-only. `render.yaml` deliberately leaves
+`CORS_ORIGINS` and all four `SMTP_*` values as `sync: false` so they're
+never accidentally committed.
+
 ## This machine
 
 - Node.js v24.19.0 / npm 11.17.0, PostgreSQL 17 (Windows service
@@ -55,21 +89,21 @@ no session.
 | App role | `thinkhealth` / `thinkhealth_dev_pw` |
 | Database | `thinkhealth_hotels` |
 
-## Accounts (live right now)
+## Accounts (live right now, on **production** — see Deployment below)
 
 | Email | Role | Note |
 | --- | --- | --- |
 | `sjasmeet7499@gmail.com` | **owner** | the real owner account |
-| `owner@thinkhealth.com` | admin | seeded account, demoted from owner during earlier testing — name is now misleading |
-| `admin@thinkhealth.com` | admin | seeded |
-| `viewer@thinkhealth.com` | viewer | seeded, password `NewViewerPass2026!` (rotated 2026-08-25 while testing the OTP password-reset flow — was `ViewerPass123`) |
-| `demo@gmail.com` | viewer | self-registered, submitted a real edit request (see below) |
 | `sagar.thinkhealth@gmail.com` | viewer | self-registered |
+| `shikha.dixit@thinkhealth.in` | admin | |
 
-⚠️ **`npm run security:check`** still flags `owner@thinkhealth.com` and
-`viewer@thinkhealth.com` on demo passwords documented in this file and in
-`server/README.md`. Rotate with `npm run user:passwd -- <email> --generate`
-before this touches any network you don't control.
+All seeded/demo accounts (`owner@thinkhealth.com`, `admin@thinkhealth.com`,
+`viewer@thinkhealth.com`, `demo@gmail.com`) were **deleted by the real owner
+directly through the live Manage Users panel on 2026-08-27**, closing the
+"rotate demo passwords" item by removal rather than rotation. If a working
+seeded admin account is needed again for testing, recreate one with
+`npm run user:create -- <email> <password> admin` against the production
+`DATABASE_URL`.
 
 ## Data
 

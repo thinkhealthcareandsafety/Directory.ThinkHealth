@@ -1,6 +1,6 @@
 // Shared front-end configuration, loaded by both index.html and login.html.
 // Change API_BASE here (and only here) when deploying.
-const API_BASE = 'https://thinkhealth-api.onrender.com/api';
+const API_BASE = 'http://localhost:3000/api';
 
 const AUTH_TOKEN_KEY = 'thinkhealth_auth_token';
 const AUTH_USER_KEY = 'thinkhealth_auth_user';
