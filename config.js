@@ -1,6 +1,6 @@
 // Shared front-end configuration, loaded by both index.html and login.html.
 // Change API_BASE here (and only here) when deploying.
-const API_BASE = 'http://localhost:3000/api';
+const API_BASE = 'https://thinkhealth-api.onrender.com/api';
 
 const AUTH_TOKEN_KEY = 'thinkhealth_auth_token';
 const AUTH_USER_KEY = 'thinkhealth_auth_user';
@@ -8,16 +8,21 @@ const AUTH_USER_KEY = 'thinkhealth_auth_user';
 // Background video loading policy.
 //
 // `preload="metadata"` does little once `autoplay` is set — the browser fetches
-// enough to start playing regardless. So the decision of whether to spend 3.5MB
-// is made here instead, and the <source> is only attached when it is worth it.
-// Everyone else keeps the 64KB poster, which is the same frame, so the page
-// looks identical either way.
+// enough to start playing regardless. So the decision of whether to spend the
+// ~2.2MB is made here instead, and the <source> is only attached when it's
+// worth it. Everyone else keeps the 64KB poster, which is the same frame, so
+// the page looks identical either way.
+//
+// Phones used to be excluded outright on the assumption that a small screen
+// implies a constrained connection — it doesn't, and it also meant the video
+// simply never played on mobile regardless of network quality. The real
+// signals (data saver, an actually-slow connection, reduced-motion) are
+// checked directly instead of treating viewport width as a proxy for them.
 function shouldLoadBackgroundVideo() {
   const conn = navigator.connection || {};
   if (conn.saveData) return false;                                   // data saver on
   if (/(^|-)2g$/.test(conn.effectiveType || '')) return false;       // very slow link
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
-  if (matchMedia('(max-width: 640px)').matches) return false;        // phones: poster is plenty
   return true;
 }
 

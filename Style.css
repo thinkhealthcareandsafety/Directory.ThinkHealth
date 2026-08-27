@@ -1061,11 +1061,19 @@ footer {
 }
 
 @media (max-width: 900px) {
-  .appbar-inner { grid-template-columns: 1fr auto; padding: 0 var(--s-4); }
+  /* Two rows now (brand+account on row 1, nav on row 2), but the container
+     was still locked to the one-row height — row 2 rendered outside the
+     header's own background and sat directly on the hero photo, dark text
+     on a dark image, functionally invisible. auto-height fits both rows. */
+  .appbar-inner {
+    grid-template-columns: 1fr auto; grid-template-rows: auto auto;
+    height: auto; min-height: var(--appbar-h);
+    padding: var(--s-2) var(--s-4);
+  }
   .appbar-center {
     grid-column: 1 / -1; grid-row: 2;
     justify-self: stretch; border-top: 1px solid var(--border-color);
-    padding-top: var(--s-1);
+    padding-top: var(--s-2); margin-top: var(--s-1);
   }
   .appbar { position: static; }
   #accessRequestsBtn, #manageUsersBtn { display: none; }
@@ -1745,7 +1753,14 @@ body.modal-open .hero > .bg-fallback {
 .pill:focus-visible { outline: 2px solid var(--brass); outline-offset: 1px; }
 
 @media (max-width: 900px) {
-  .pillbar { max-width: 100%; overflow-x: auto; flex-wrap: nowrap; }
+  /* Nothing signalled that Star Rating/City/State were sitting just off the
+     right edge — a fade on both edges is the standard "there's more here"
+     cue for a horizontally scrolling row. */
+  .pillbar {
+    max-width: 100%; overflow-x: auto; flex-wrap: nowrap;
+    mask-image: linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent);
+    -webkit-mask-image: linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent);
+  }
 }
 
 /* ============================================================
