@@ -15,14 +15,14 @@ const signupSuccess = document.getElementById('signupSuccess');
 const signinSubmit = document.getElementById('signinSubmit');
 const signupSubmit = document.getElementById('signupSubmit');
 
-const ALL_PANELS = ['signin', 'signup', 'forgot-request', 'forgot-otp', 'forgot-reset'];
-const FORGOT_PANELS = ['forgot-request', 'forgot-otp', 'forgot-reset'];
+const ALL_PANELS = ['signin', 'signup', 'signup-otp', 'forgot-request', 'forgot-otp', 'forgot-reset'];
+const TABLESS_PANELS = ['signup-otp', 'forgot-request', 'forgot-otp', 'forgot-reset'];
 
 // ------------------------------------------------------------------
 // Tabs / panel switching
 // ------------------------------------------------------------------
 function showPanel(name) {
-  document.getElementById('authTabs').hidden = FORGOT_PANELS.includes(name);
+  document.getElementById('authTabs').hidden = TABLESS_PANELS.includes(name);
   document.querySelectorAll('.auth-tab').forEach((tab) => {
     tab.classList.toggle('active', tab.dataset.panel === name);
   });
@@ -30,11 +30,17 @@ function showPanel(name) {
     document.getElementById(`panel-${p}`).hidden = p !== name;
   });
   if (name !== 'forgot-otp' && name !== 'forgot-reset') stopOtpTimer();
+  if (name !== 'signup-otp') stopSignupOtpTimer();
 }
 
 document.querySelectorAll('.auth-tab').forEach((tab) => {
   tab.addEventListener('click', () => showPanel(tab.dataset.panel));
 });
+
+// Arriving from about.html's "Create Account" button (?tab=signup) opens
+// straight to that tab instead of making the person click it again.
+const requestedTab = new URLSearchParams(window.location.search).get('tab');
+if (requestedTab === 'signup') showPanel('signup');
 
 // ------------------------------------------------------------------
 // Helpers
@@ -103,6 +109,60 @@ signinForm.addEventListener('submit', async (e) => {
 // ------------------------------------------------------------------
 // Create account
 // ------------------------------------------------------------------
+// Step 1 only requests a code now — the account isn't created until step 2
+// verifies it. resetEmail/resetTicket-style module state, but its own
+// variables so this can't cross-wire with the forgot-password flow.
+let signupEmail = '';
+let signupPassword = '';
+
+const SIGNUP_OTP_LIFETIME_SECONDS = 10 * 60;
+const signupOtpForm = document.getElementById('signupOtpForm');
+const signupOtpError = document.getElementById('signupOtpError');
+const signupOtpSuccess = document.getElementById('signupOtpSuccess');
+const signupOtpSubmit = document.getElementById('signupOtpSubmit');
+const signupOtpNote = document.getElementById('signupOtpNote');
+const signupOtpInput = document.getElementById('signupOtp');
+const signupOtpTimerEl = document.getElementById('signupOtpTimer');
+const signupOtpResend = document.getElementById('signupOtpResend');
+
+let signupOtpTimerInterval = null;
+let signupOtpDeadline = 0;
+
+function stopSignupOtpTimer() {
+  if (signupOtpTimerInterval) {
+    clearInterval(signupOtpTimerInterval);
+    signupOtpTimerInterval = null;
+  }
+}
+function startSignupOtpTimer(seconds = SIGNUP_OTP_LIFETIME_SECONDS) {
+  stopSignupOtpTimer();
+  signupOtpDeadline = Date.now() + seconds * 1000;
+  signupOtpTimerEl.classList.remove('is-expired');
+  signupOtpResend.disabled = true;
+  signupOtpSubmit.disabled = false;
+
+  const tick = () => {
+    const remaining = Math.max(0, Math.round((signupOtpDeadline - Date.now()) / 1000));
+    const mins = Math.floor(remaining / 60);
+    const secs = remaining % 60;
+    if (remaining > 0) {
+      signupOtpTimerEl.textContent = `Expires in ${mins}:${secs.toString().padStart(2, '0')}`;
+    } else {
+      signupOtpTimerEl.textContent = 'Code expired — request a new one.';
+      signupOtpTimerEl.classList.add('is-expired');
+      signupOtpResend.disabled = false;
+      signupOtpSubmit.disabled = true;
+      stopSignupOtpTimer();
+    }
+  };
+  tick();
+  signupOtpTimerInterval = setInterval(tick, 1000);
+}
+
+async function requestSignupOtp() {
+  return postJson('/auth/register/request', { email: signupEmail, password: signupPassword });
+}
+
 signupForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   hideMessages();
@@ -116,21 +176,81 @@ signupForm.addEventListener('submit', async (e) => {
     return;
   }
 
+  signupEmail = email;
+  signupPassword = password;
+
   signupSubmit.disabled = true;
-  signupSubmit.textContent = 'Creating account...';
+  signupSubmit.textContent = 'Sending code...';
 
   try {
-    const data = await postJson('/auth/register', { email, password });
-    signupForm.reset();
-    showPanel('signin');
-    document.getElementById('signinEmail').value = email;
-    show(signinSuccess, data.message || 'Account created. You can now sign in.');
-    document.getElementById('signinPassword').focus();
+    const data = await requestSignupOtp();
+    signupOtpForm.reset();
+    signupOtpError.hidden = true;
+    signupOtpSuccess.hidden = true;
+    signupOtpNote.textContent = `We've sent a 6-digit code to ${email} if that address isn't already registered. Enter it below to finish creating your account.`;
+    showPanel('signup-otp');
+    startSignupOtpTimer();
+    signupOtpInput.focus();
   } catch (err) {
     show(signupError, err.message);
   } finally {
     signupSubmit.disabled = false;
-    signupSubmit.textContent = 'Create Account';
+    signupSubmit.textContent = 'Send Verification Code';
+  }
+});
+
+document.getElementById('signupBackToSignup').addEventListener('click', () => showPanel('signup'));
+
+signupOtpResend.addEventListener('click', async () => {
+  signupOtpResend.disabled = true;
+  signupOtpError.hidden = true;
+  try {
+    await requestSignupOtp();
+    signupOtpInput.value = '';
+    startSignupOtpTimer();
+    show(signupOtpSuccess, 'A new code has been sent.');
+  } catch (err) {
+    show(signupOtpError, err.message);
+    signupOtpResend.disabled = false;
+  }
+});
+
+signupOtpForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  signupOtpError.hidden = true;
+  signupOtpSuccess.hidden = true;
+
+  const otp = signupOtpInput.value.trim();
+
+  if (signupOtpDeadline && Date.now() > signupOtpDeadline) {
+    show(signupOtpError, 'That code has expired. Request a new one.');
+    return;
+  }
+  if (!/^\d{6}$/.test(otp)) {
+    show(signupOtpError, 'Enter the 6-digit code.');
+    return;
+  }
+
+  signupOtpSubmit.disabled = true;
+  signupOtpSubmit.textContent = 'Verifying...';
+
+  try {
+    const data = await postJson('/auth/register/verify', { email: signupEmail, otp });
+    stopSignupOtpTimer();
+    signupForm.reset();
+    signupOtpForm.reset();
+    const emailForSignin = signupEmail;
+    signupEmail = '';
+    signupPassword = '';
+    showPanel('signin');
+    document.getElementById('signinEmail').value = emailForSignin;
+    show(signinSuccess, data.message || 'Account created. You can now sign in.');
+    document.getElementById('signinPassword').focus();
+  } catch (err) {
+    show(signupOtpError, err.message);
+  } finally {
+    signupOtpSubmit.disabled = false;
+    signupOtpSubmit.textContent = 'Verify & Create Account';
   }
 });
 
@@ -343,4 +463,41 @@ forgotResetForm.addEventListener('submit', async (e) => {
     forgotResetSubmit.disabled = false;
     forgotResetSubmit.textContent = 'Reset Password';
   }
+});
+
+// ------------------------------------------------------------------
+// Show/hide password
+//
+// Built here rather than in the markup so every .pwfield gets one without
+// five near-identical blocks of HTML. Revealing is per-field and always
+// starts hidden — a reveal that persisted across panels would be a
+// shoulder-surfing hazard on a shared screen.
+// ------------------------------------------------------------------
+const EYE_SHOW = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.75"/></svg>';
+const EYE_HIDE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 12s3.6-6.5 10-6.5c1.9 0 3.5.6 4.9 1.4M22 12s-3.6 6.5-10 6.5c-1.9 0-3.6-.6-5-1.4"/><path d="M9.9 9.9a3 3 0 004.2 4.2"/><path d="M3 3l18 18"/></svg>';
+
+document.querySelectorAll('.pwfield').forEach((field) => {
+  const input = field.querySelector('input[type="password"]');
+  if (!input) return;
+
+  const btn = document.createElement('button');
+  btn.type = 'button';                   // never submit the form
+  btn.className = 'pwtoggle';
+  btn.innerHTML = EYE_SHOW;
+  btn.setAttribute('aria-label', 'Show password');
+  btn.setAttribute('aria-pressed', 'false');
+
+  btn.addEventListener('click', () => {
+    const revealed = input.type === 'text';
+    input.type = revealed ? 'password' : 'text';
+    btn.innerHTML = revealed ? EYE_SHOW : EYE_HIDE;
+    btn.setAttribute('aria-label', revealed ? 'Show password' : 'Hide password');
+    btn.setAttribute('aria-pressed', String(!revealed));
+    // Keep the caret where the person left it rather than jumping to the end.
+    const pos = input.selectionStart;
+    input.focus();
+    try { input.setSelectionRange(pos, pos); } catch (_) { /* type change can reject this */ }
+  });
+
+  field.appendChild(btn);
 });

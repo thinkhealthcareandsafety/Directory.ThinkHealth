@@ -120,6 +120,24 @@ const passwordResetVerifyLimiter = rateLimit({
   },
 });
 
+// Signup verify: same reasoning as the password-reset verify limiter — a
+// 6-digit code is the actual thing being guarded against brute force here.
+const signupVerifyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  keyGenerator: (req) => normalizeEmail(req) || ipKeyGenerator(req.ip || ''),
+  handler: (req, res) => {
+    logAuditEvent({
+      eventType: 'signup_rate_limited',
+      userEmail: normalizeEmail(req) || null,
+      detail: 'Signup verify blocked by rate limit.',
+    });
+    res.status(429).json({ error: RETRY_MESSAGE });
+  },
+});
+
 module.exports = {
   loginIpLimiter,
   loginAccountLimiter,
@@ -127,4 +145,5 @@ module.exports = {
   registerLimiter,
   passwordResetRequestLimiter,
   passwordResetVerifyLimiter,
+  signupVerifyLimiter,
 };

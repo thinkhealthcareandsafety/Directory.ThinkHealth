@@ -7,10 +7,10 @@ const { config } = require('../config');
 const { logAuditEvent } = require('../audit');
 const {
   loginIpLimiter, loginAccountLimiter, registerLimiter,
-  passwordResetRequestLimiter, passwordResetVerifyLimiter,
+  passwordResetRequestLimiter, passwordResetVerifyLimiter, signupVerifyLimiter,
 } = require('../middleware/rateLimit');
 const { checkPassword } = require('../../scripts/password-policy');
-const { sendPasswordResetOtp } = require('../email');
+const { sendPasswordResetOtp, sendSignupOtp } = require('../email');
 
 const router = express.Router();
 
@@ -30,11 +30,12 @@ function timingSafeEqualHex(a, b) {
   return crypto.timingSafeEqual(bufA, bufB);
 }
 
-// POST /api/auth/register — public self-registration. Always creates a
-// *viewer* account; elevation to admin requires owner approval via access
-// requests. This means anyone can read the directory once registered, but
-// nobody can grant themselves edit rights through this endpoint.
-router.post('/register', registerLimiter, async (req, res, next) => {
+// POST /api/auth/register/request — public self-registration, step 1.
+// Validates email + password and, if the address isn't already taken,
+// stashes both (password already hashed) alongside an OTP. No row lands in
+// `users` until /register/verify confirms the code — an abandoned signup
+// just expires here instead of becoming a real, never-logged-into account.
+router.post('/register/request', registerLimiter, async (req, res, next) => {
   try {
     const email = (req.body.email || '').toString().trim().toLowerCase();
     const password = (req.body.password || '').toString();
@@ -51,20 +52,94 @@ router.post('/register', registerLimiter, async (req, res, next) => {
       return res.status(400).json({ error: `Password rejected: ${passwordProblems.join('; ')}.` });
     }
 
+    const GENERIC_MESSAGE = 'If that address is not already registered, a verification code has been sent. It expires in 10 minutes.';
+
     const existing = await pool.query('SELECT 1 FROM users WHERE email = $1', [email]);
     if (existing.rows.length > 0) {
-      // Don't reveal whether the email exists — return the same shape as success
-      // so an attacker can't enumerate registered addresses.
-      return res.status(200).json({ message: 'If that address is not already registered, an account has been created. Please log in.' });
+      // Don't reveal whether the email exists — same response either way,
+      // and skip sending mail to an address that's already a real account.
+      return res.status(200).json({ message: GENERIC_MESSAGE });
     }
 
-    const passwordHash = await bcrypt.hash(password, 12);
+    // A fresh request supersedes any prior unused one for this email, same
+    // rule as password-reset — at most one live code per address at a time.
     await pool.query(
-      'INSERT INTO users (email, password_hash, role) VALUES ($1, $2, $3)',
-      [email, passwordHash, 'viewer']
+      `UPDATE signup_otps SET used_at = now() WHERE email = $1 AND used_at IS NULL`,
+      [email]
     );
 
-    await logAuditEvent({ eventType: 'user_registered', userEmail: email, detail: 'Self-registered as viewer.' });
+    const passwordHash = await bcrypt.hash(password, 12);
+    const otp = crypto.randomInt(0, 1000000).toString().padStart(6, '0');
+    await pool.query(
+      `INSERT INTO signup_otps (email, password_hash, otp_hash, expires_at)
+       VALUES ($1, $2, $3, now() + ($4 || ' minutes')::interval)`,
+      [email, passwordHash, sha256Hex(otp), config.signupOtp.expiresMinutes]
+    );
+
+    await sendSignupOtp(email, otp);
+    await logAuditEvent({ eventType: 'signup_requested', userEmail: email });
+
+    res.status(200).json({ message: GENERIC_MESSAGE });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/auth/register/verify — step 2. Confirms the code and only then
+// creates the real `users` row, always as viewer — elevation to admin still
+// only happens via owner-approved access requests.
+router.post('/register/verify', signupVerifyLimiter, async (req, res, next) => {
+  try {
+    const email = (req.body.email || '').toString().trim().toLowerCase();
+    const otp = (req.body.otp || '').toString().trim();
+
+    if (!email || !otp) {
+      return res.status(400).json({ error: 'Email and code are required.' });
+    }
+
+    const INVALID = { error: 'That code is invalid or has expired. Request a new one.' };
+
+    const otpResult = await pool.query(
+      `SELECT id, password_hash, otp_hash, attempt_count FROM signup_otps
+       WHERE email = $1 AND used_at IS NULL AND expires_at > now()
+       ORDER BY created_at DESC LIMIT 1`,
+      [email]
+    );
+    const row = otpResult.rows[0];
+    if (!row) {
+      return res.status(400).json(INVALID);
+    }
+
+    if (row.attempt_count >= config.signupOtp.maxAttempts) {
+      await pool.query('UPDATE signup_otps SET used_at = now() WHERE id = $1', [row.id]);
+      return res.status(400).json(INVALID);
+    }
+
+    if (!timingSafeEqualHex(sha256Hex(otp), row.otp_hash)) {
+      const attempts = row.attempt_count + 1;
+      const burn = attempts >= config.signupOtp.maxAttempts;
+      await pool.query(
+        `UPDATE signup_otps SET attempt_count = $1, used_at = ${burn ? 'now()' : 'used_at'} WHERE id = $2`,
+        [attempts, row.id]
+      );
+      await logAuditEvent({ eventType: 'signup_failed', userEmail: email, detail: burn ? 'Code burned after too many attempts.' : 'Incorrect code.' });
+      return res.status(400).json(INVALID);
+    }
+
+    // Someone could register the same email again while this code sat
+    // unverified — re-check right before the insert, not just at request time.
+    const existing = await pool.query('SELECT 1 FROM users WHERE email = $1', [email]);
+    if (existing.rows.length > 0) {
+      await pool.query('UPDATE signup_otps SET used_at = now() WHERE id = $1', [row.id]);
+      return res.status(409).json({ error: 'That email is already registered. Try signing in instead.' });
+    }
+
+    await pool.query(
+      'INSERT INTO users (email, password_hash, role) VALUES ($1, $2, $3)',
+      [email, row.password_hash, 'viewer']
+    );
+    await pool.query('UPDATE signup_otps SET used_at = now() WHERE id = $1', [row.id]);
+    await logAuditEvent({ eventType: 'user_registered', userEmail: email, detail: 'Self-registered as viewer, email verified.' });
 
     res.status(201).json({ message: 'Account created. You can now log in.' });
   } catch (err) {

@@ -8,7 +8,7 @@
   <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
   <link rel="icon" href="favicon-16.png" type="image/png" sizes="16x16">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
-  <link rel="stylesheet" href="Style.css?v=56">
+  <link rel="stylesheet" href="Style.css?v=59">
   <style>
     body {
       min-height: 100vh;
@@ -25,8 +25,8 @@
     body::after {
       background: linear-gradient(
         to bottom,
-        rgba(28, 46, 42, 0.38) 0%,
-        rgba(28, 46, 42, 0.62) 100%
+        rgba(16, 28, 25, 0.66) 0%,
+        rgba(16, 28, 25, 0.84) 100%
       );
     }
 
@@ -153,6 +153,27 @@
 
     .field-hint { font-weight: 400; color: var(--muted); font-size: 0.78rem; }
 
+    /* Show/hide password. The button sits inside the field, so the input
+       gets right padding to keep typed text from running underneath it. */
+    .pwfield { position: relative; }
+    .auth-card .pwfield input { padding-right: 2.75rem; }
+    .pwtoggle {
+      position: absolute;
+      top: 50%; right: 0.5rem;
+      transform: translateY(-50%);
+      display: grid; place-items: center;
+      width: 2rem; height: 2rem;
+      padding: 0;
+      background: none; border: none;
+      border-radius: var(--radius-sm);
+      color: var(--muted);
+      cursor: pointer;
+      transition: color 0.15s, background 0.15s;
+    }
+    .pwtoggle:hover { color: var(--ink); background: rgba(28, 46, 42, 0.06); }
+    .pwtoggle:focus-visible { outline: 2px solid var(--brass); outline-offset: 1px; }
+    .pwtoggle svg { width: 18px; height: 18px; display: block; }
+
     .auth-link-row { text-align: right; margin: -0.5rem 0 1rem; }
     .auth-link {
       background: none;
@@ -253,7 +274,9 @@
           </div>
           <div class="form-group">
             <label for="signinPassword">Password</label>
-            <input type="password" id="signinPassword" autocomplete="current-password" required>
+            <div class="pwfield">
+              <input type="password" id="signinPassword" autocomplete="current-password" required>
+            </div>
           </div>
           <div class="auth-link-row">
             <button type="button" class="auth-link" id="forgotPasswordLink">Forgot password?</button>
@@ -277,13 +300,37 @@
           </div>
           <div class="form-group">
             <label for="signupPassword">Password <span class="field-hint">(min 9 characters)</span></label>
-            <input type="password" id="signupPassword" autocomplete="new-password" minlength="9" required>
+            <div class="pwfield">
+              <input type="password" id="signupPassword" autocomplete="new-password" minlength="9" required>
+            </div>
           </div>
           <div class="form-group">
             <label for="signupConfirm">Confirm Password</label>
-            <input type="password" id="signupConfirm" autocomplete="new-password" minlength="9" required>
+            <div class="pwfield">
+              <input type="password" id="signupConfirm" autocomplete="new-password" minlength="9" required>
+            </div>
           </div>
-          <button type="submit" class="auth-submit" id="signupSubmit">Create Account</button>
+          <button type="submit" class="auth-submit" id="signupSubmit">Send Verification Code</button>
+        </form>
+      </div>
+
+      <!-- CREATE ACCOUNT — step 2: verify the emailed code before the
+           account actually gets created -->
+      <div class="auth-panel" id="panel-signup-otp" hidden>
+        <button type="button" class="auth-back" id="signupBackToSignup">&larr; Back</button>
+        <p class="auth-note" id="signupOtpNote">Enter the code we sent.</p>
+        <p class="auth-msg error" id="signupOtpError" hidden></p>
+        <p class="auth-msg success" id="signupOtpSuccess" hidden></p>
+        <form id="signupOtpForm" novalidate>
+          <div class="form-group">
+            <label for="signupOtp">6-digit code</label>
+            <input type="text" id="signupOtp" class="otp-input" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" required>
+          </div>
+          <p class="otp-timer" id="signupOtpTimer">Expires in 10:00</p>
+          <button type="submit" class="auth-submit" id="signupOtpSubmit">Verify &amp; Create Account</button>
+          <div class="auth-link-row" style="text-align:center; margin-top:0.85rem;">
+            <button type="button" class="otp-resend" id="signupOtpResend" disabled>Resend code</button>
+          </div>
         </form>
       </div>
 
@@ -337,11 +384,15 @@
         <form id="forgotResetForm" novalidate>
           <div class="form-group">
             <label for="forgotNewPassword">New password <span class="field-hint">(min 9 characters)</span></label>
-            <input type="password" id="forgotNewPassword" autocomplete="new-password" minlength="9" required>
+            <div class="pwfield">
+              <input type="password" id="forgotNewPassword" autocomplete="new-password" minlength="9" required>
+            </div>
           </div>
           <div class="form-group">
             <label for="forgotConfirmPassword">Confirm new password</label>
-            <input type="password" id="forgotConfirmPassword" autocomplete="new-password" minlength="9" required>
+            <div class="pwfield">
+              <input type="password" id="forgotConfirmPassword" autocomplete="new-password" minlength="9" required>
+            </div>
           </div>
           <button type="submit" class="auth-submit" id="forgotResetSubmit">Reset Password</button>
         </form>
@@ -351,7 +402,7 @@
     <p class="auth-footer">&copy; 2026 Thinkhealth Data Hub</p>
   </div>
 
-  <script src="config.js?v=54"></script>
-  <script src="auth.js?v=44" defer></script>
+  <script src="config.js?v=58"></script>
+  <script src="auth.js?v=57" defer></script>
 </body>
 </html>

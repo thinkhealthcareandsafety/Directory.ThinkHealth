@@ -8,7 +8,7 @@
   <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
   <link rel="icon" href="favicon-16.png" type="image/png" sizes="16x16">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
-  <link rel="stylesheet" href="Style.css?v=56">
+  <link rel="stylesheet" href="Style.css?v=59">
 </head>
 <body>
 
@@ -222,6 +222,15 @@
             <span>Filters</span>
             <span class="countpill" id="filterCountBadge" hidden>0</span>
           </button>
+          <!-- The rail's own "Clear all" is unreachable once the drawer is
+               closed (mobile) or scrolled past (desktop), so the reset lives
+               out here too, beside the count it affects. -->
+          <button type="button" class="toolbar-clear" id="toolbarClearBtn" hidden>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+            <span>Clear filters</span>
+          </button>
         </div>
 
         <div class="toolbar-trail">
@@ -242,9 +251,24 @@
             <option value="desc">Descending</option>
           </select>
 
-          <span class="toolbar-label" id="sortPillsLabel">Alphabetical filters</span>
-          <div class="pillbar" role="group" aria-labelledby="sortPillsLabel" id="sortByPills"></div>
-          <div class="pillbar" role="group" aria-label="Sort direction" id="sortDirPills"></div>
+          <!-- Collapsed by default: this is a sort control, not a filter,
+               and having six pills plus Ascending/Descending permanently on
+               screen read as clutter and was mislabeled "filters" on top of
+               it. One button shows the active choice; pressing it opens the
+               same pill rows as a horizontal strip. -->
+          <div class="sortslider">
+            <button type="button" class="sortslider-toggle" id="sortToggleBtn" aria-expanded="false" aria-controls="sortSliderPanel">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M3 7h12M3 12h8M3 17h4"/><path d="M17 6v13M17 19l3-3M17 19l-3-3"/>
+              </svg>
+              <span>Sort: <strong id="sortToggleLabel">Name</strong></span>
+            </button>
+            <div class="sortslider-panel" id="sortSliderPanel" hidden>
+              <span class="toolbar-label" id="sortPillsLabel">Sort by</span>
+              <div class="pillbar" role="group" aria-labelledby="sortPillsLabel" id="sortByPills"></div>
+              <div class="pillbar" role="group" aria-label="Sort direction" id="sortDirPills"></div>
+            </div>
+          </div>
 
           <div class="viewtoggle" role="group" aria-label="View mode">
             <button type="button" class="viewbtn is-active" id="viewGridBtn" aria-pressed="true" aria-label="Grid view">
@@ -477,6 +501,7 @@
           </div>
           <ul class="products-grid" id="productsGrid"></ul>
           <p class="products-note" id="productsNote" hidden>Only an admin can change this list.</p>
+          <button type="button" class="btn btn-edit btn-sm products-save" id="saveProductsBtn" hidden disabled>Save Products</button>
         </div>
 
         <!-- Departmental Contacts Section -->
@@ -765,8 +790,8 @@
     </div>
   </div>
 
-  <script src="config.js?v=54"></script>
+  <script src="config.js?v=58"></script>
   <script src="combobox.js?v=52"></script>
-  <script src="script.js?v=53" defer></script>
+  <script src="script.js?v=57" defer></script>
 </body>
 </html>

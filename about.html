@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Thinkhealth &middot; Hotel Database</title>
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="icon" href="favicon-16.png" type="image/png" sizes="16x16">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="stylesheet" href="Style.css?v=59">
+  <style>
+    /* ============================================================
+       LANDING PAGE — foundation only.
+       Real slide copy + imagery to be dropped in later (see the
+       SLIDE DATA comment in about.js); the mechanism below — auto-
+       advancing, cross-fading panels with a filling progress bar per
+       tab, same interaction pattern as NVIDIA's newsroom hero — is
+       the part meant to last.
+       ============================================================ */
+    body {
+      min-height: 100vh;
+      margin: 0;
+      background: var(--ink);
+      color: var(--paper);
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    .landing-topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1.25rem clamp(1.25rem, 4vw, 3rem);
+      flex-shrink: 0;
+    }
+    .landing-brand { display: flex; align-items: center; gap: 0.65rem; text-decoration: none; }
+    .landing-brand img { height: 30px; width: auto; }
+    .landing-brand span {
+      font-family: var(--font-display); font-size: 1.05rem; font-weight: 600;
+      color: var(--paper);
+    }
+    .landing-actions { display: flex; align-items: center; gap: 0.75rem; }
+    .landing-btn {
+      font-family: var(--font-body); font-size: 0.85rem; font-weight: 600;
+      padding: 0.55rem 1.1rem;
+      border-radius: var(--radius-sm);
+      text-decoration: none;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .landing-btn-ghost {
+      color: var(--paper);
+      border: 1px solid rgba(246, 243, 236, 0.35);
+    }
+    .landing-btn-ghost:hover { border-color: var(--paper); background: rgba(246, 243, 236, 0.08); }
+    .landing-btn-solid {
+      color: var(--ink);
+      background: var(--brass);
+      border: 1px solid var(--brass);
+    }
+    .landing-btn-solid:hover { background: var(--brass-dark); border-color: var(--brass-dark); }
+
+    .landing-stage {
+      flex: 1;
+      display: flex; flex-direction: column; justify-content: center;
+      padding: 2rem clamp(1.25rem, 4vw, 3rem);
+      max-width: 1280px;
+      width: 100%;
+      margin: 0 auto;
+      min-height: 0;
+    }
+
+    .landing-panel {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+      gap: clamp(2rem, 5vw, 4rem);
+      align-items: center;
+    }
+
+    .landing-copy { min-width: 0; }
+    .landing-eyebrow {
+      font-family: var(--font-mono); font-size: 0.75rem; font-weight: 600;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--brass);
+      margin: 0 0 1rem;
+      opacity: 0; transform: translateY(8px);
+      transition: opacity 0.5s ease, transform 0.5s ease;
+    }
+    .landing-headline {
+      font-family: var(--font-display); font-weight: 600;
+      font-size: clamp(1.9rem, 4.2vw, 3.1rem); line-height: 1.12;
+      letter-spacing: -0.015em;
+      margin: 0 0 1.1rem;
+      opacity: 0; transform: translateY(10px);
+      transition: opacity 0.55s ease 0.05s, transform 0.55s ease 0.05s;
+    }
+    .landing-desc {
+      font-size: clamp(0.95rem, 1.3vw, 1.1rem); line-height: 1.65;
+      color: rgba(246, 243, 236, 0.78);
+      max-width: 46ch;
+      margin: 0 0 1.75rem;
+      opacity: 0; transform: translateY(10px);
+      transition: opacity 0.55s ease 0.1s, transform 0.55s ease 0.1s;
+    }
+    .landing-cta {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      opacity: 0; transform: translateY(10px);
+      transition: opacity 0.55s ease 0.15s, transform 0.55s ease 0.15s;
+    }
+    .landing-panel.is-active .landing-eyebrow,
+    .landing-panel.is-active .landing-headline,
+    .landing-panel.is-active .landing-desc,
+    .landing-panel.is-active .landing-cta { opacity: 1; transform: none; }
+
+    .landing-visual {
+      aspect-ratio: 4 / 3;
+      border-radius: var(--radius);
+      background: linear-gradient(145deg, rgba(168,124,63,0.16), rgba(246,243,236,0.04));
+      border: 1px solid rgba(246, 243, 236, 0.14);
+      display: grid; place-items: center;
+      opacity: 0; transform: scale(0.97);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    .landing-panel.is-active .landing-visual { opacity: 1; transform: none; }
+    .landing-visual svg { width: 34%; height: 34%; color: var(--brass); opacity: 0.85; }
+
+    /* --- slide strip --- */
+    .landing-strip {
+      flex-shrink: 0;
+      display: flex;
+      gap: clamp(0.75rem, 2vw, 1.75rem);
+      padding: 1.5rem clamp(1.25rem, 4vw, 3rem) 2rem;
+      max-width: 1280px;
+      width: 100%;
+      margin: 0 auto;
+      overflow-x: auto;
+      border-top: 1px solid rgba(246, 243, 236, 0.14);
+    }
+    .landing-tab {
+      flex: 1 1 0; min-width: 160px;
+      background: none; border: none;
+      text-align: left; cursor: pointer;
+      padding: 0.9rem 0 0;
+      color: rgba(246, 243, 236, 0.55);
+    }
+    .landing-tab-track {
+      display: block;
+      height: 2px; width: 100%;
+      background: rgba(246, 243, 236, 0.18);
+      border-radius: 2px;
+      margin-bottom: 0.75rem;
+      overflow: hidden;
+    }
+    .landing-tab-fill {
+      display: block;
+      height: 100%; width: 0%;
+      background: var(--brass);
+      border-radius: 2px;
+    }
+    .landing-tab.is-active .landing-tab-fill { transition: width linear; }
+    .landing-tab-eyebrow {
+      display: block;
+      font-family: var(--font-mono); font-size: 0.66rem; font-weight: 600;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      margin-bottom: 0.3rem;
+      color: inherit;
+    }
+    .landing-tab-title {
+      display: block;
+      font-family: var(--font-body); font-size: 0.9rem; font-weight: 600;
+      color: rgba(246, 243, 236, 0.4);
+      transition: color 0.25s ease;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .landing-tab.is-active .landing-tab-title,
+    .landing-tab:hover .landing-tab-title { color: var(--paper); }
+    .landing-tab.is-active .landing-tab-eyebrow { color: var(--brass); }
+
+    @media (max-width: 760px) {
+      .landing-panel { grid-template-columns: 1fr; }
+      .landing-visual { order: -1; aspect-ratio: 16 / 9; }
+      .landing-strip { display: none; }  /* tabs replaced by dots on mobile — see about.js */
+      .landing-dots {
+        display: flex; justify-content: center; gap: 8px;
+        padding: 0 0 2rem;
+      }
+      .landing-dots button {
+        width: 8px; height: 8px; border-radius: 50%;
+        border: none; padding: 0; cursor: pointer;
+        background: rgba(246, 243, 236, 0.3);
+        transition: background 0.2s, transform 0.2s;
+      }
+      .landing-dots button.is-active { background: var(--brass); transform: scale(1.3); }
+    }
+    @media (min-width: 761px) {
+      .landing-dots { display: none; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .landing-eyebrow, .landing-headline, .landing-desc, .landing-cta, .landing-visual {
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="landing-topbar">
+    <a class="landing-brand" href="about.html">
+      <img src="logo.png?v=54" alt="" onerror="this.style.display='none'">
+      <span>Hotel Database</span>
+    </a>
+    <div class="landing-actions">
+      <a class="landing-btn landing-btn-ghost" href="login.html">Sign In</a>
+      <a class="landing-btn landing-btn-solid" href="login.html?tab=signup">Create Account</a>
+    </div>
+  </header>
+
+  <main class="landing-stage" id="landingStage" aria-live="off">
+    <!-- Panels are rendered by about.js from the SLIDE DATA at the top of
+         that file — nothing hardcoded here so dropping in real content
+         later is a data change, not a markup change. -->
+  </main>
+
+  <nav class="landing-strip" id="landingStrip" aria-label="Highlights"></nav>
+  <div class="landing-dots" id="landingDots"></div>
+
+  <script src="config.js?v=58"></script>
+  <script src="about.js" defer></script>
+</body>
+</html>

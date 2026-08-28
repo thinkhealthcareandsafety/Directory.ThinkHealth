@@ -35,4 +35,20 @@ async function sendPasswordResetOtp(email, otp) {
   });
 }
 
-module.exports = { sendPasswordResetOtp };
+async function sendSignupOtp(email, otp) {
+  const t = getTransporter();
+  if (!t) {
+    console.log(`[dev] Signup verification code for ${email}: ${otp} (expires in ${config.signupOtp.expiresMinutes} min)`);
+    return;
+  }
+
+  await t.sendMail({
+    from: config.smtp.from,
+    to: email,
+    subject: 'Verify your email — Thinkhealth Hotel Database',
+    text: `Your verification code is ${otp}. Enter it to finish creating your account. It expires in ${config.signupOtp.expiresMinutes} minutes. If you didn't request this, ignore this email.`,
+    html: `<p>Your verification code is:</p><p style="font-size:28px;font-weight:600;letter-spacing:0.1em;">${otp}</p><p>Enter it to finish creating your account. It expires in ${config.signupOtp.expiresMinutes} minutes. If you didn't request this, ignore this email.</p>`,
+  });
+}
+
+module.exports = { sendPasswordResetOtp, sendSignupOtp };

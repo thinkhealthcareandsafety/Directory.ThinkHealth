@@ -57,6 +57,10 @@ const config = {
     expiresMinutes: 5,
     maxAttempts: 5,
   },
+  signupOtp: {
+    expiresMinutes: 10,
+    maxAttempts: 5,
+  },
 };
 
 // Returns { fatal: [...], warnings: [...] }. Split out from the throw so tests

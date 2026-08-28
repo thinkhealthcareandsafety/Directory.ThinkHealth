@@ -801,16 +801,20 @@ function renderHotels(hotels, total) {
     const initial = (hotel.name || '?').trim().charAt(0).toUpperCase();
     const [va, vb] = visualFor(hotel);
 
-    const place = [hotel.city, hotel.state].filter(isValidValue).join(' · ');
-    const brandBits = [];
-    if (isValidValue(hotel.brand)) brandBits.push(escapeHtml(hotel.brand));
-    if (isValidValue(hotel.group_name)) brandBits.push(escapeHtml(hotel.group_name));
-    const brandLine = brandBits.length ? brandBits.join(' · ') : 'Independent';
+    // Each fact gets its own labelled row. Previously these were run
+    // together as "Kolkata · West Bengal" / "Ama Stays & Trails · IHCL
+    // Villas", which left no way to tell city from state or brand from
+    // group without already knowing the data.
+    const facts = [
+      ['City', hotel.city],
+      ['State', hotel.state],
+      ['Brand', hotel.brand],
+      ['Group', hotel.group_name],
+    ].filter(([, v]) => isValidValue(v));
     // A future establishment year means the property hasn't opened yet —
     // worth calling out rather than reading as an ordinary "Est." date.
     const upcoming = isUpcoming(hotel);
-    const year = isValidValue(hotel.establishment_year)
-      ? `<span class="card-year">|</span>${upcoming ? 'Opening' : 'Est.'} ${escapeHtml(hotel.establishment_year)}` : '';
+    const year = isValidValue(hotel.establishment_year);
 
     // <article> with a button-like affordance: keyboard reachable and announced.
     const card = document.createElement('article');
@@ -848,13 +852,17 @@ function renderHotels(hotels, total) {
       </div>
 
       <div class="card-body">
-        ${place ? `<p class="card-place">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
-            <path d="M12 21s7-6.3 7-11a7 7 0 10-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>
-          </svg><span>${escapeHtml(place)}</span></p>` : `<p class="card-place" aria-hidden="true"></p>`}
-
         <h3 class="card-name">${escapeHtml(hotel.name)}</h3>
-        <p class="card-brand">${brandLine}${year}</p>
+
+        <dl class="card-facts">
+          ${facts.map(([label, value]) => `
+            <div class="card-fact">
+              <dt>${label}</dt><dd>${escapeHtml(value)}</dd>
+            </div>`).join('')}
+          ${year ? `<div class="card-fact">
+              <dt>${upcoming ? 'Opening' : 'Est.'}</dt><dd>${escapeHtml(hotel.establishment_year)}</dd>
+            </div>` : ''}
+        </dl>
 
         <div class="card-metarow">
           <span class="card-id">${escapeHtml(hotel.hotel_id)}</span>
@@ -1096,6 +1104,7 @@ const PRODUCTS = [
 const productsGrid = document.getElementById('productsGrid');
 const productsStatus = document.getElementById('productsStatus');
 const productsNote = document.getElementById('productsNote');
+const saveProductsBtn = document.getElementById('saveProductsBtn');
 
 function renderProducts(hotel) {
   const owned = new Set(Array.isArray(hotel.products) ? hotel.products : []);
@@ -1139,6 +1148,9 @@ function renderProducts(hotel) {
 
   productsGrid.appendChild(frag);
   productsNote.hidden = canEdit;
+  saveProductsBtn.hidden = !canEdit;
+  saveProductsBtn.disabled = true;   // nothing ticked yet this time round
+  saveProductsBtn.textContent = 'Save Products';
   updateProductsStatus();
 }
 
@@ -1150,18 +1162,24 @@ function updateProductsStatus() {
   productsStatus.classList.toggle('is-empty', n === 0);
 }
 
-// Delegated: the boxes are rebuilt per hotel, so one listener on the grid
-// rather than re-binding six each time the modal opens.
-productsGrid.addEventListener('change', async (e) => {
-  const box = e.target.closest('input[type="checkbox"]');
-  if (!box || !activeHotelId) return;
+// Ticking a box only stages the change — nothing is written until Save is
+// pressed. A checklist that saved on every click was surprising: a misclick
+// silently changed the live record with no chance to back out.
+productsGrid.addEventListener('change', (e) => {
+  if (!e.target.closest('input[type="checkbox"]')) return;
+  updateProductsStatus();
+  saveProductsBtn.disabled = false;
+  saveProductsBtn.textContent = 'Save Products';
+});
+
+saveProductsBtn.addEventListener('click', async () => {
+  if (!activeHotelId) return;
 
   const selected = [...productsGrid.querySelectorAll('input:checked')].map((b) => b.dataset.productKey);
-  updateProductsStatus();
-
   const boxes = [...productsGrid.querySelectorAll('input')];
   boxes.forEach((b) => { b.disabled = true; });
-  productsStatus.classList.add('is-saving');
+  saveProductsBtn.disabled = true;
+  saveProductsBtn.textContent = 'Saving...';
 
   try {
     await request(`/hotels/${encodeURIComponent(activeHotelId)}/products`, {
@@ -1171,13 +1189,14 @@ productsGrid.addEventListener('change', async (e) => {
     // the grid) doesn't show the pre-save state.
     const cached = findHotelById(activeHotelId);
     if (cached) cached.products = selected;
+    saveProductsBtn.textContent = 'Saved';
+    setTimeout(() => { saveProductsBtn.textContent = 'Save Products'; }, 1500);
   } catch (err) {
-    box.checked = !box.checked;      // put the tick back where it was
-    updateProductsStatus();
     alert(`Could not save: ${err.message}`);
+    saveProductsBtn.disabled = false;
+    saveProductsBtn.textContent = 'Save Products';
   } finally {
     boxes.forEach((b) => { b.disabled = false; });
-    productsStatus.classList.remove('is-saving');
   }
 });
 
@@ -1553,11 +1572,40 @@ async function syncScopedFilterOptions() {
 
 // Hero headline figures. Properties is the live row count, which equals the
 // highest real Hotel ID (TH02274) — they are the same number by construction.
+// Counts up from whatever the element currently shows (0 on first load,
+// its prior value on a later refresh) rather than snapping straight to the
+// new figure — the headline numbers otherwise just appeared, which read as
+// static. Respects reduced-motion by skipping straight to the end value.
+const REDUCE_MOTION = matchMedia('(prefers-reduced-motion: reduce)').matches;
+function animateCount(el, to, duration = 900) {
+  if (!el || !Number.isFinite(to)) return;
+  const fmt = new Intl.NumberFormat('en-IN');
+  if (REDUCE_MOTION) { el.textContent = fmt.format(to); return; }
+
+  const from = Number(el.textContent.replace(/[^0-9]/g, '')) || 0;
+  if (from === to) { el.textContent = fmt.format(to); return; }
+
+  if (el._countRaf) cancelAnimationFrame(el._countRaf);
+  const start = performance.now();
+  const easeOutCubic = (t) => 1 - (1 - t) ** 3;
+
+  const step = (now) => {
+    const t = Math.min(1, (now - start) / duration);
+    const value = Math.round(from + (to - from) * easeOutCubic(t));
+    el.textContent = fmt.format(value);
+    if (t < 1) {
+      el._countRaf = requestAnimationFrame(step);
+    } else {
+      delete el._countRaf;
+    }
+  };
+  el._countRaf = requestAnimationFrame(step);
+}
+
 function setHeroStats(meta) {
-  const n = (v) => new Intl.NumberFormat('en-IN').format(v);
   const put = (id, value) => {
     const el = document.getElementById(id);
-    if (el && value !== undefined && value !== null) el.textContent = n(value);
+    if (el && value !== undefined && value !== null) animateCount(el, value);
   };
 
   put('statCities', meta.cities && meta.cities.length);
@@ -1900,7 +1948,13 @@ function loadAppData() {
 
 document.addEventListener('DOMContentLoaded', () => {
   if (!getAuthToken()) {
-    redirectToLogin();
+    // A cold, never-signed-in visit goes to the marketing landing page, not
+    // straight to the sign-in form — about.html is where "Sign In" and
+    // "Create Account" actually live now. A session that expired mid-use
+    // (see request()'s 401 handling) still goes straight back to
+    // login.html via redirectToLogin(); that's a returning user, not a
+    // first visit, and shouldn't be shown the landing page again.
+    window.location.replace('about.html');
     return;
   }
   updateAuthUI();
@@ -1917,6 +1971,7 @@ const railScrim = document.getElementById('railScrim');
 const railOpenBtn = document.getElementById('railOpenBtn');
 const railCloseBtn = document.getElementById('railCloseBtn');
 const clearFiltersBtn = document.getElementById('clearFiltersBtn');
+const toolbarClearBtn = document.getElementById('toolbarClearBtn');
 const filterCountBadge = document.getElementById('filterCountBadge');
 const railActiveCount = document.getElementById('railActiveCount');
 const searchClearBtn = document.getElementById('searchClearBtn');
@@ -2035,6 +2090,7 @@ function syncFilterState() {
   filterCountBadge.hidden = n === 0;
   filterCountBadge.textContent = n;
   clearFiltersBtn.hidden = n === 0;
+  toolbarClearBtn.hidden = n === 0;
   railActiveCount.hidden = n === 0;
   railActiveCount.textContent = n === 1 ? '1 filter active' : `${n} filters active`;
 }
@@ -2058,6 +2114,7 @@ function clearAllFilters() {
 }
 
 clearFiltersBtn.addEventListener('click', clearAllFilters);
+toolbarClearBtn.addEventListener('click', clearAllFilters);
 FILTER_CONTROLS.forEach((el) => el && el.addEventListener('change', syncFilterState));
 favouritesOnlyToggle.addEventListener('change', () => {
   syncFilterState();
@@ -2148,9 +2205,7 @@ viewListBtn.addEventListener('click', () => applyViewMode('list'));
 // --- Hero property count reflects the real dataset --------------------------
 // Replaces the figure that used to be hardcoded in the markup.
 function setHeroCount(total) {
-  if (!Number.isFinite(total)) return;
-  const el = document.getElementById('statProperties');
-  if (el) el.textContent = new Intl.NumberFormat('en-IN').format(total);
+  animateCount(document.getElementById('statProperties'), total);
 }
 
 // --- Hero scroll cue --------------------------------------------------------
@@ -2172,12 +2227,45 @@ if (heroScrollBtn) {
   });
 }
 
+// --- Sort slider: collapsed toggle that opens the pill rows on demand ------
+const sortToggleBtn = document.getElementById('sortToggleBtn');
+const sortToggleLabel = document.getElementById('sortToggleLabel');
+const sortSliderPanel = document.getElementById('sortSliderPanel');
+
+function closeSortSlider() {
+  sortSliderPanel.hidden = true;
+  sortToggleBtn.setAttribute('aria-expanded', 'false');
+  document.removeEventListener('click', onOutsideSortSlider, true);
+}
+function openSortSlider() {
+  sortSliderPanel.hidden = false;
+  sortToggleBtn.setAttribute('aria-expanded', 'true');
+  document.addEventListener('click', onOutsideSortSlider, true);
+}
+function onOutsideSortSlider(e) {
+  if (!sortSliderPanel.contains(e.target) && e.target !== sortToggleBtn && !sortToggleBtn.contains(e.target)) {
+    closeSortSlider();
+  }
+}
+sortToggleBtn.addEventListener('click', () => {
+  if (sortSliderPanel.hidden) openSortSlider(); else closeSortSlider();
+});
+
+function syncSortToggleLabel() {
+  const sortOpt = sortByFilter.options[sortByFilter.selectedIndex];
+  const dirOpt = sortDirFilter.options[sortDirFilter.selectedIndex];
+  sortToggleLabel.textContent = `${sortOpt.textContent} · ${dirOpt.textContent}`;
+}
+sortByFilter.addEventListener('change', syncSortToggleLabel);
+sortDirFilter.addEventListener('change', syncSortToggleLabel);
+
 // --- Boot -------------------------------------------------------------------
 applyViewMode(localStorage.getItem(VIEW_KEY) === 'list' ? 'list' : 'grid');
 syncFilterState();
 syncSearchClear();
 buildPillGroup(sortByFilter, document.getElementById('sortByPills'));
 buildPillGroup(sortDirFilter, document.getElementById('sortDirPills'));
+syncSortToggleLabel();
 
 // Footer copyright year — set from the clock so it never goes stale.
 const footerYearEl = document.getElementById('footerYear');
