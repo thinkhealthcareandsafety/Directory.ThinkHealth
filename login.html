@@ -4,11 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sign In &middot; Thinkhealth Hotel Database</title>
+  <meta name="description" content="Sign in to the Thinkhealth Hotel Database — the directory of safety contacts and on-site equipment for partner hotels across India.">
   <link rel="icon" href="favicon.ico" sizes="any">
   <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
   <link rel="icon" href="favicon-16.png" type="image/png" sizes="16x16">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
-  <link rel="stylesheet" href="Style.css?v=59">
+  <link rel="stylesheet" href="Style.css?v=60">
   <style>
     body {
       min-height: 100vh;
@@ -235,6 +236,7 @@
   </style>
 </head>
 <body>
+  <a class="skip-link" href="#authCard">Skip to sign-in form</a>
 
   <!-- Background video layer. One continuous clip, audio stripped, looped
        natively. It was previously split into two files played back-to-back,
@@ -257,7 +259,7 @@
       <p>Pan-India Directory</p>
     </div>
 
-    <div class="auth-card">
+    <div class="auth-card" id="authCard">
       <div class="auth-tabs" id="authTabs">
         <button class="auth-tab active" data-panel="signin" type="button">Sign In</button>
         <button class="auth-tab" data-panel="signup" type="button">Create Account</button>
@@ -402,7 +404,7 @@
     <p class="auth-footer">&copy; 2026 Thinkhealth Data Hub</p>
   </div>
 
-  <script src="config.js?v=58"></script>
+  <script src="config.js?v=61"></script>
   <script src="auth.js?v=57" defer></script>
 </body>
 </html>

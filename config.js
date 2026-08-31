@@ -5,6 +5,46 @@ const API_BASE = 'https://thinkhealth-api.onrender.com/api';
 const AUTH_TOKEN_KEY = 'thinkhealth_auth_token';
 const AUTH_USER_KEY = 'thinkhealth_auth_user';
 
+// ------------------------------------------------------------------
+// Toast notifications — replaces window.alert() everywhere. alert() blocks
+// the whole tab, looks like a browser dialog rather than part of the app,
+// and can't show more than one message at a time. This is a plain queue of
+// dismissible, auto-expiring banners instead. Shared here (not script.js or
+// auth.js individually) since every page — directory, login, landing —
+// needs a way to report an error without a browser popup.
+function toast(message, { type = 'error', duration = 5000 } = {}) {
+  let stack = document.getElementById('toastStack');
+  if (!stack) {
+    stack = document.createElement('div');
+    stack.id = 'toastStack';
+    stack.className = 'toast-stack';
+    stack.setAttribute('role', 'status');
+    stack.setAttribute('aria-live', 'polite');
+    document.body.appendChild(stack);
+  }
+
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  el.innerHTML = `<span class="toast-msg"></span><button type="button" class="toast-close" aria-label="Dismiss">&times;</button>`;
+  el.querySelector('.toast-msg').textContent = message;   // never innerHTML'd — message may be server-supplied text
+  stack.appendChild(el);
+
+  let dismissed = false;
+  const dismiss = () => {
+    if (dismissed) return;
+    dismissed = true;
+    el.classList.add('is-leaving');
+    // Under prefers-reduced-motion the leave animation is disabled entirely
+    // (see Style.css), so animationend would never fire — a plain timeout
+    // fallback ensures the toast still gets removed either way.
+    el.addEventListener('animationend', () => el.remove(), { once: true });
+    setTimeout(() => el.remove(), 250);
+  };
+  el.querySelector('.toast-close').addEventListener('click', dismiss);
+  const timer = setTimeout(dismiss, duration);
+  el.addEventListener('mouseenter', () => clearTimeout(timer));
+}
+
 // Background video loading policy.
 //
 // `preload="metadata"` does little once `autoplay` is set — the browser fetches

@@ -602,9 +602,9 @@ requestAccessBtn.addEventListener('click', async () => {
     await request('/access-requests', { method: 'POST', auth: true });
     myAccessRequestStatus = 'pending';
     updateAuthUI();
-    alert('Request sent. The owner will review it.');
+    toast('Request sent. The owner will review it.', { type: 'success' });
   } catch (err) {
-    alert(err.message);
+    toast(err.message);
     requestAccessBtn.disabled = false;
   }
 });
@@ -659,7 +659,7 @@ async function resolveAccessRequest(id, action) {
     await request(`/access-requests/${encodeURIComponent(id)}/${action}`, { method: 'POST', auth: true });
     await loadAccessRequests();
   } catch (err) {
-    alert(err.message);
+    toast(err.message);
   }
 }
 
@@ -705,7 +705,7 @@ async function deleteContactRole(role) {
     await openDetailModal(activeHotelId, { forceRefresh: true });
     await fetchHotels(currentPage);
   } catch (err) {
-    alert(`Could not delete contact: ${err.message}`);
+    toast(`Could not delete contact: ${err.message}`);
   } finally {
     btn.disabled = false;
     btn.textContent = originalLabel;
@@ -986,7 +986,7 @@ async function openDetailModal(hotelId, { forceRefresh = false } = {}) {
       const { data } = await request(`/hotels/${encodeURIComponent(hotelId)}`, { auth: true });
       hotel = data;
     } catch (err) {
-      alert(`Could not load hotel ${hotelId}: ${err.message}`);
+      toast(`Could not load hotel ${hotelId}: ${err.message}`);
       return;
     }
   }
@@ -1071,7 +1071,7 @@ detailDeleteBtn.addEventListener('click', async () => {
     closeDetailModal();
     await fetchHotels(currentPage);
   } catch (err) {
-    alert(`Could not delete: ${err.message}`);
+    toast(`Could not delete: ${err.message}`);
   } finally {
     detailDeleteBtn.disabled = false;
     detailDeleteBtn.textContent = originalLabel;
@@ -1192,7 +1192,7 @@ saveProductsBtn.addEventListener('click', async () => {
     saveProductsBtn.textContent = 'Saved';
     setTimeout(() => { saveProductsBtn.textContent = 'Save Products'; }, 1500);
   } catch (err) {
-    alert(`Could not save: ${err.message}`);
+    toast(`Could not save: ${err.message}`);
     saveProductsBtn.disabled = false;
     saveProductsBtn.textContent = 'Save Products';
   } finally {
@@ -1289,7 +1289,7 @@ async function openAddModal() {
 function openEditModal(hotelId) {
   const hotel = findHotelById(hotelId);
   if (!hotel) {
-    alert(`Could not find hotel ${hotelId} to edit.`);
+    toast(`Could not find hotel ${hotelId} to edit.`);
     return;
   }
 
@@ -1410,7 +1410,7 @@ hotelForm.addEventListener('submit', async (e) => {
       CONTACT_FIELD_KEYS.forEach((k) => { proposedChanges[k] = payload[k]; });
       await request(`/hotels/${encodeURIComponent(originalId)}/edit-requests`, { method: 'POST', body: proposedChanges, auth: true });
       closeModal();
-      alert('Thanks — your suggested changes have been sent to an admin for review.');
+      toast('Thanks — your suggested changes have been sent to an admin for review.', { type: 'success' });
     } else if (isEdit) {
       await request(`/hotels/${encodeURIComponent(originalId)}`, { method: 'PUT', body: payload, auth: true });
       closeModal();
@@ -1763,7 +1763,7 @@ async function loadUserAccounts() {
           badge.className = `role-badge ${role}`;
           badge.textContent = role;
         } catch (err) {
-          alert(err.message);
+          toast(err.message);
           sel.value = origValue;
         }
       });
@@ -1778,7 +1778,7 @@ async function loadUserAccounts() {
           await request(`/users/${encodeURIComponent(email)}`, { method: 'DELETE', auth: true });
           row.remove();
         } catch (err) {
-          alert(err.message);
+          toast(err.message);
         }
       });
     });
@@ -1933,7 +1933,7 @@ editRequestsList.addEventListener('click', async (e) => {
     // The change is now live (if approved) — refresh whatever's on screen.
     await fetchHotels(currentPage);
   } catch (err) {
-    alert(`Could not ${action} this request: ${err.message}`);
+    toast(`Could not ${action} this request: ${err.message}`);
     buttons.forEach((b) => { b.disabled = false; });
   }
 });
