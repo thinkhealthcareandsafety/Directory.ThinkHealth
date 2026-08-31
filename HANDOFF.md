@@ -4,306 +4,365 @@ Operational state of the project: the things that aren't derivable from the
 code itself. Server-specific detail (endpoints, schema) lives in
 [server/README.md](server/README.md) — this file is the layer above that,
 and doubles as a context-transfer doc for handing this project to a fresh
-conversation.
+conversation. Read this whole file before proposing work — several
+decisions below were deliberate and already re-litigated once.
 
-Last updated: 2026-08-26.
-
-**Repo**: https://github.com/thinkhealthcareandsafety/Directory.ThinkHealth
-(private). Pushed 2026-08-26 — `git init` done in this session, `.gitignore`
-verified to exclude `server/.env` (real secrets) and the raw video source
-before the first commit. `render.yaml` at the repo root is a Render
-Blueprint for one-pass deploy (Postgres + API + static site) — not yet
-deployed as of this writing.
+Last updated: 2026-08-31. Rewritten wholesale this pass — the previous
+version predated the entire deployment, the About Us page, and email-
+verified signup, so patching it further would have left more stale than
+current.
 
 ---
+
+## The site, live right now
+
+| | |
+| --- | --- |
+| Landing page | https://thinkhealth-hub.onrender.com (redirects here if signed out) |
+| Directory (signed in) | https://thinkhealth-hub.onrender.com/index.html |
+| API | https://thinkhealth-api.onrender.com |
+| Repo | https://github.com/thinkhealthcareandsafety/Directory.ThinkHealth (private) |
+| Host | Render — `render.yaml` at repo root is the Blueprint (Postgres + API + static site) |
+
+Real production data — 2,274 real hotels, real accounts, real people's
+contact info. Deploy changes carefully; there is no staging environment.
 
 ## Layout
 
 ```
 Thinkhealth/
+  about.html    NEW landing page — the entry point for a signed-out visitor
+  about.js      about.html's slideshow logic
   index.html    the directory (hero + search + filters + card grid)
-  login.html    separate sign-in / sign-up page — no directory content loads here
+  login.html    sign-in / sign-up / forgot-password — no directory content loads here
+  404.html      branded not-found page (Render serves this for unmatched routes)
   script.js     all directory logic (filters, cards, modals, pagination, admin panels)
-  auth.js       login.html's own logic (sign-in / sign-up forms)
-  config.js     shared constants (API_BASE, storage keys) + background-video loader
-  combobox.js   generic searchable-dropdown widget, wraps a <select> without replacing it
-  Style.css     one stylesheet for both pages
-  logo.png, hero-loop.mp4, hero-loop-2.mp4, hero-poster.jpg/webp   hero media
+  auth.js       login.html's own logic (sign-in / sign-up / OTP flows)
+  config.js     shared constants (API_BASE, storage keys), video loader, toast() component
+  combobox.js   two widgets: enhanceSelect (filter rail) and enhanceInputCombobox (form fields with "create new")
+  Style.css     one stylesheet for every page
+  logo.png, hero-loop.mp4, hero-poster.jpg/webp, badge-*.png, favicon*   media/brand assets
   server/                                Node/Express + PostgreSQL API
 ```
 
-No build step anywhere — open the HTML files, edit, refresh.
+No build step anywhere — open the HTML files, edit, refresh (see the cache
+gotcha below, though). `API_BASE` in `config.js` is the one line that
+decides local-vs-production; it must say `https://thinkhealth-api.onrender.com/api`
+before any push, and `http://localhost:3000/api` while testing locally.
+**Check `git diff config.js` before every commit** — several sessions have
+caught this half-reverted.
 
-Frontend is static files on **port 8080**; API on **port 3000**.
-`API_BASE` is hardcoded in `config.js` (shared by both pages) — change it there
-for any deployment.
-
-**Run it:**
+**Run it locally:**
 ```bash
 cd "C:/Users/11/Desktop/HTML CSS/Thinkhealth/server" && npm run dev
 ```
 ```bash
 cd "C:/Users/11/Desktop/HTML CSS/Thinkhealth" && python -m http.server 8080
 ```
-Then open `http://localhost:8080` — it redirects to `login.html` if you have
-no session.
+Open `http://localhost:8080` — signed out, it lands on `about.html`.
 
-## Deployment (live since 2026-08-27)
+**Cache-busting gotcha**: every asset is referenced with a manual `?v=N`
+query string (`Style.css?v=60`, `script.js?v=60`, etc.), bumped by hand on
+every edit — there's no build tool doing this automatically. Forgetting to
+bump it is the single most common source of "I fixed it but it's not
+showing" confusion in this project, both locally (browser tab cache) and in
+production (Render's CDN cache). When testing and a change doesn't appear,
+bump the version number before assuming the code is wrong.
 
-| | |
-| --- | --- |
-| Frontend | https://thinkhealth-hub.onrender.com |
-| API | https://thinkhealth-api.onrender.com |
-| Repo | https://github.com/thinkhealthcareandsafety/Directory.ThinkHealth (private) |
-| Host | Render — `render.yaml` at repo root is the Blueprint (Postgres + API + static site) |
+## Deployment specifics
 
-Real production data — deploy changes carefully. The 2,274 hotels and the
-three real accounts above were migrated once via `pg_dump`/`\copy` from the
-local dev database (excluding two test hotel rows, `TH02275` and `TH99500`,
-that never should have been in the local data either).
+**Case sensitivity**: built and tested on Windows (case-insensitive
+filenames); Render's Linux filesystem is not. Already bit us once —
+`index.html` referenced `style.css`, the tracked file is `Style.css`, 404'd
+silently in production only. Check any new asset reference against
+`git ls-files` exactly, not just "does it open locally."
 
-**Case sensitivity**: this was built and tested entirely on Windows, which
-is case-insensitive for filenames — Render's Linux filesystem is not. One
-bug already hit from this: `index.html` referenced `style.css` while the
-tracked file is `Style.css`, which 404'd silently in production only. Any
-new asset reference should be checked for exact-case match against
-`git ls-files`, not just "does it open locally."
+**Env vars live in the Render dashboard**, not the repo. `server/.env`
+(real Gmail SMTP password, JWT secret) is gitignored and stays local-only.
+`render.yaml` deliberately leaves `CORS_ORIGINS` and all four `SMTP_*` as
+`sync: false` so they can't be accidentally committed.
 
-**Env vars are set directly in the Render dashboard**, not in the repo —
-`server/.env` (with the real Gmail SMTP password and JWT secret) is
-gitignored and stays local-only. `render.yaml` deliberately leaves
-`CORS_ORIGINS` and all four `SMTP_*` values as `sync: false` so they're
-never accidentally committed.
+**`npm run migrate:up` runs automatically** as part of the API's Render
+build command — a new migration file just needs to be committed and
+pushed, no manual `psql` step against production. (One exception: the
+initial data load — the 2,274 real hotels and accounts — was a one-time
+manual `pg_dump`/`\copy` from local to production; that's done, not a
+recurring step.)
 
 ## This machine
 
 - Node.js v24.19.0 / npm 11.17.0, PostgreSQL 17 (Windows service
   `postgresql-x64-17`), psql at `C:\Program Files\PostgreSQL\17\bin\psql.exe`
-- **ffmpeg** installed via winget this session, for building the hero video:
-  `C:\Users\11\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-9.0-full_build\bin\ffmpeg.exe`
-- **Docker not installed** — `Dockerfile`/`docker-compose.yml` exist, never run
+- **ffmpeg**: `C:\Users\11\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-9.0-full_build\bin\ffmpeg.exe`
+  — used for the hero video (single continuous clip now, see below)
+- **Docker not installed** — `Dockerfile`/`docker-compose.yml` exist, never run, not the deployment path (Render is)
+- **`playwright-cli`** is available globally for browser-driven testing/QA independent of the Claude Code browser tools
 
-| | |
+| Local DB | |
 | --- | --- |
 | Superuser | `postgres` / `postgres` |
 | App role | `thinkhealth` / `thinkhealth_dev_pw` |
 | Database | `thinkhealth_hotels` |
 
-## Accounts (live right now, on **production** — see Deployment below)
+## Accounts (production)
 
-| Email | Role | Note |
-| --- | --- | --- |
-| `sjasmeet7499@gmail.com` | **owner** | the real owner account |
-| `sagar.thinkhealth@gmail.com` | viewer | self-registered |
-| `shikha.dixit@thinkhealth.in` | admin | |
+| Email | Role |
+| --- | --- |
+| `sjasmeet7499@gmail.com` | **owner** |
+| `sagar.thinkhealth@gmail.com` | viewer |
+| `shikha.dixit@thinkhealth.in` | admin |
 
 All seeded/demo accounts (`owner@thinkhealth.com`, `admin@thinkhealth.com`,
-`viewer@thinkhealth.com`, `demo@gmail.com`) were **deleted by the real owner
-directly through the live Manage Users panel on 2026-08-27**, closing the
-"rotate demo passwords" item by removal rather than rotation. If a working
-seeded admin account is needed again for testing, recreate one with
+`viewer@thinkhealth.com`, `demo@gmail.com`) were deleted by the real owner
+through the live Manage Users panel — closes the old "rotate demo
+passwords" item by removal. To recreate a seeded admin for testing, use
 `npm run user:create -- <email> <password> admin` against the production
-`DATABASE_URL`.
+`DATABASE_URL` (get it from Render's dashboard, never hardcode it anywhere).
+
+Local dev DB still has its own separate seeded accounts
+(`admin@thinkhealth.com` / `AdminPass123`, `viewer@thinkhealth.com` /
+`NewViewerPass2026!`) — these are fine to use for local testing since they
+never touch production.
 
 ## Data
 
-2,274 live hotel rows. Contact completeness is tracked as **x/16** — four
-roles (Security Head, General Manager, Purchase Manager, Other) × four fields
-(name/email/phone/linkedin). 486 hotels have at least one of the 16 filled;
-1,788 have none.
+2,274 live hotel rows. Contact completeness tracked as **x/16** (four roles
+× four fields). ~79% of hotels (1,788) have none of the 16 fields filled —
+the edit-approval workflow exists to close this over time, it just needs
+use, not more code.
 
-**Schema quirk:** the "Other Contact" role's LinkedIn column is named
-`linkedin_url`, not `other_contact_linkedin` like the other three roles. Easy
-to miss when touching contact-field code — grep for `linkedin_url` specifically.
-
-**Region classification** (`server/src/regions.js`): the raw `state` column
-mixes 26 Indian states, 7 Indian union territories, and 8 foreign regions
-(Nepal provinces, "Greater London (UK)", etc.) — 41 distinct values total.
-Classified server-side so the hero stats and filters don't lie about "how many
-Indian states."
+- **Mojibake**: 13 hotel names have double-encoded UTF-8 from the source
+  CSV, hand-repaired in the DB. The importer doesn't fix encoding — a
+  re-import reintroduces them. IDs: TH00074, TH00084, TH00233, TH00293,
+  TH00924, TH00931, TH00936, TH00953, TH01110, TH01269, TH01270, TH01743,
+  TH01858.
+- **`linkedin_url` schema quirk**: the "Other Contact" role's LinkedIn
+  column is `linkedin_url`, not `other_contact_linkedin` like the other
+  three roles. Easy to miss — grep for `linkedin_url` specifically when
+  touching contact-field code.
+- **Region classification** (`server/src/regions.js`): the raw `state`
+  column mixes 26 Indian states, 7 union territories, and 8 foreign
+  regions. Classified server-side so hero stats don't lie.
+- **`category` field is nearly empty** — only one distinct value ("Business")
+  exists across all 2,274 rows. The Category picker in the form will look
+  broken/empty until real data populates it; that's a data gap, not a bug.
+- **Products (on-site equipment)** list — AED, Stretcher, Wheelchair, First
+  Aid Kit, Oxygen Cylinder, Spine Board — is explicitly a placeholder set,
+  waiting on the real list from the user.
 
 ## Decisions already made — don't re-litigate
 
-- **Zoho integration was built, then deliberately removed** (pre-dates this
-  session). Postgres is the sole source of truth.
-- **No email notifications** — no SMTP configured. Access-request and
-  edit-request approval are in-app only.
-- **`GET /api/hotels*` now requires authentication** — this was flipped this
-  session. Originally open on an office-network assumption; now every
-  directory page requires sign-in, reachable via `login.html`.
-- **Self-registration exists** (`POST /api/auth/register`), always creates a
-  **viewer** account. No public path to admin — that still only happens via
-  owner-approved access requests.
-- **Viewers can propose edits, not make them.** They can't write to `hotels`
-  directly, but can submit a diff that an admin/owner approves or rejects
-  (see "Edit-approval workflow" below). This was the last major feature built.
-- **Add Hotel is admin/owner only**, verified this session at all three
-  layers (UI hidden, API returns 403, nothing reaches the database).
+- Zoho integration was built, then deliberately removed. Postgres is the
+  sole source of truth.
+- **`GET /api/hotels*` requires authentication** — every directory page
+  requires sign-in.
+- **Self-registration requires email verification** — see "Email-verified
+  signup" below. This replaced a simpler single-step register endpoint;
+  don't reintroduce it.
+- **Viewers propose edits, they don't make them**, and are further
+  restricted to *only* the 16 contact fields (not name/brand/city/state/
+  star-rating/etc.) — enforced server-side with a 403, not just hidden in
+  the UI.
+- **Add Hotel is admin/owner only**, verified at all three layers (UI
+  hidden, API 403, nothing reaches the DB).
+- **About Us (`about.html`) is now the real landing page.** A cold,
+  never-signed-in visit to `index.html` redirects here, not to
+  `login.html` directly. A session that *expires* mid-use still goes
+  straight back to `login.html` — only a genuinely first visit sees the
+  landing page. Its slide content is explicit placeholder copy pending
+  real content from the user (pulled from real footer facts so it isn't
+  lorem ipsum, but still marked as temporary in code comments).
+- **Products checklist requires an explicit Save** — ticking a box only
+  stages the change; nothing hits the server until "Save Products" is
+  clicked. It auto-saved on every click earlier in the project; that was
+  deliberately changed after a misclick concern.
+- **No `window.alert()` anywhere in `script.js`** — replaced with a real
+  toast component (`toast()` in `config.js`). `auth.js` never used `alert()`
+  to begin with (inline `.auth-msg` errors). `window.confirm()` is still
+  used for the three genuinely destructive actions (delete hotel, delete
+  account, clear a contact) — deliberately not replaced, since a custom
+  confirm dialog risks bugs on a real delete path for cosmetic gain only.
 
-## What was built this project (roughly chronological)
+## What was built (roughly chronological)
 
-**Security hardening** — login rate limiting (per-IP and per-account), CORS
-allowlist (`CORS_ORIGINS` env var, permissive only in dev), startup config
-validation that refuses to boot production with a weak/missing secret,
-constant-time login (no timing leak on unknown emails), `npm run
-security:check` as a deployable gate, password rotation tooling.
+**Security hardening, login separation, visual redesign, filter system,
+sort/pagination** — the foundational work; see git history for detail if
+needed, it's stable and hasn't changed recently.
 
-**Login separated from the directory** — `login.html` + `auth.js` are their
-own page now; `index.html` never renders without a valid session. Shared
-`config.js` holds `API_BASE` and storage keys so both pages agree.
+**Password reset (OTP)** — self-service, no admin involvement.
+`password_reset_otps` table, hashed codes only, 6-digit/5-minute/single-use,
+burns itself after 5 wrong attempts. Delivered via `src/email.js`
+(nodemailer over Gmail SMTP — real credentials in Render's dashboard and
+local `.env`, never in the repo).
 
-**Full visual redesign** — design-token system in `Style.css` (spacing,
-radii, shadows, motion durations), sticky app bar, full-viewport hero with a
-video background, redesigned hotel cards (deterministic architectural SVG
-placeholder instead of emoji — hue derived from hotel ID), skeleton loaders,
-empty/error states with recovery actions, list/grid view toggle.
+**Email-verified signup** (replaces the old one-step register) —
+`POST /auth/register/request` sends an OTP and holds the hashed password in
+a new `signup_otps` table; `POST /auth/register/verify` confirms the code
+and *only then* inserts into `users`. An abandoned signup just expires
+rather than becoming a real, never-verified account. Same hashing/
+timing-safe-compare pattern as password reset, separate table, separate
+rate limiter (`signupVerifyLimiter`).
 
-**Filter system** — every long filter (Brand ~200, City ~500, State, Group)
-is a searchable combobox (`combobox.js`) wrapping the real `<select>`, not
-replacing it, so existing `change` listeners never needed touching. Panels
-portal to `<body>` because the filter rail scrolls and was clipping them.
-Country → State → City cascade (each narrows the next; picking a
-country/state that invalidates the child selection clears it rather than
-silently returning zero results). Favourites-only filter, resolved
-server-side via a `hotel_ids` list param so it composes correctly with sort
-and pagination instead of just slicing the current page. Contact status is
-two states (`available` / `none`), not three — matches the ≥1-of-16 rule
-exactly, filter and card badge can't disagree.
+**Products (on-site equipment)** — `hotels.products` jsonb column
+(GIN-indexed). Canonical key list lives in *two* places that must be kept
+in sync: `PRODUCT_KEYS` in `server/src/routes/hotels.js` and `PRODUCTS` in
+`script.js` — the server whitelists against its own copy, so an unlisted
+key is silently dropped, not stored. Explicit Save button (see Decisions).
 
-**Sort/pagination** — 7 sort fields as horizontal single-select pill buttons
-(was a 3-option dropdown), separate Ascending/Descending pills. Jump-to-page
-input (rejects out-of-range) and a 10/20/50/100 page-size selector
-(persisted in localStorage).
+**Upcoming properties** — `establishment_year` in the future = not open
+yet. Filtered server-side on the DB's own clock. "Upcoming only" toggle in
+the rail; such cards show an "Upcoming YYYY" badge and "Opening" instead
+of "Est."
 
-**Hero video** — went through several source clips; currently
-`hero-loop.mp4` → `hero-loop-2.mp4` play sequentially via the `ended` event
-(not the `loop` attribute, which only repeats one clip), then cycle back to
-clip 1. `LOGIN VIDEO.mp4` in the project root is the untouched source for
-clip 1, kept for regeneration — safe to delete if disk space matters, nothing
-references it. Video is skipped entirely on `prefers-reduced-motion`,
-data-saver connections, and small viewports (poster image only). Blur amount
-is one CSS variable: `--hero-blur` in `Style.css`.
+**Form pickers with create-new** — Brand, Group, Hospitality Parent,
+Category, City, State in the Add/Edit form are type-to-filter comboboxes
+(`window.enhanceInputCombobox` in `combobox.js`, distinct from
+`enhanceSelect` which wraps the filter rail's `<select>`s) with a
+"+ Create new: …" row when nothing matches. Point is de-duplication —
+stops "Marriott"/"Marriot"/"marriott " becoming three brands.
 
-**Registration + user management** — self-service sign-up, a `full_name`
-column on `users` (so the avatar shows real initials, not the first letter of
-an email), an owner-only Manage Users panel, owner accounts are immutable
-through the API (can't be demoted or deleted by anyone, including another
-owner — must use the CLI).
+**Filters narrow by geography** — `/hotels/meta/filters` accepts optional
+`country`/`state`/`city` and scopes Brand/Group/Star-Rating (with
+recomputed counts) to that region. A selection the new scope invalidates
+clears itself rather than silently returning zero results.
 
-**Forgot-password (OTP)** — self-service reset, no admin involvement (this
-supersedes the earlier plan to do an admin-mediated queue). New
-`password_reset_otps` table (migration `1700000008000`), hashed codes only
-(never the raw OTP), 6-digit code valid 5 minutes, single-use, burns itself
-after 5 wrong attempts. Delivery via `src/email.js` (nodemailer) — requires
-`SMTP_HOST`/`SMTP_USER`/`SMTP_PASS`/`SMTP_FROM` in `.env`; without them the
-code is logged to the server console instead (dev only — `validateConfig()`
-makes missing SMTP fatal under `NODE_ENV=production`). Frontend: a third
-`login.html` flow (request → verify) with a live countdown and a disabled
-"Resend code" until expiry. Verified end-to-end this session against the
-real `viewer@thinkhealth.com` account — see the accounts table above for its
-rotated password.
+**Viewer edit scope narrowed to contacts-only** — see Decisions above.
 
-**Products (on-site equipment)** — new `hotels.products` jsonb column
-(migration `1700000010000`, GIN-indexed) holding an array of stable keys.
-The canonical list is `PRODUCT_KEYS` in `server/src/routes/hotels.js` and
-`PRODUCTS` in `script.js` — **add an item to both**; the server whitelists
-against its own copy, so an unlisted key is dropped, not stored. Shown as a
-tickable checklist in the detail modal above Departmental Contacts, saving
-per-tick via `PATCH /api/hotels/:hotel_id/products` (admin/owner only;
-viewers see it read-only). Current list: AED, Stretcher, Wheelchair, First
-Aid Kit, Oxygen Cylinder, Spine Board — placeholders pending the real list.
+**Edit-approval workflow** — `hotel_edit_requests` table. Viewer submits →
+server computes the diff against the *live* row (never trusts a
+client-supplied "before") → admin/owner reviews a real from→to diff →
+approve applies it, reject stores an optional note. Verified end-to-end
+with a real account, not just at the API.
 
-**Upcoming properties** — `establishment_year` in the future means the hotel
-hasn't opened. `GET /api/hotels?upcoming=true` filters on the *database's*
-clock (not a client-supplied year), there's an "Upcoming only" toggle under
-Favourites in the rail, and such cards show an "Upcoming YYYY" badge with
-"Opening" instead of "Est.". 4 properties qualify today (3× 2027, 1× 2028).
+**Deployment** — pushed to GitHub, deployed on Render via `render.yaml`
+(Postgres + API web service + static site, one Blueprint). Hit and fixed
+two real deploy-only bugs: `node-pg-migrate` was a devDependency and got
+skipped by `npm install` under `NODE_ENV=production` (moved to real
+dependencies), and the `style.css`/`Style.css` case-sensitivity 404
+mentioned above. Production data was migrated once from local via
+`pg_dump`/`\copy`, excluding two test hotel rows (`TH02275`, `TH99500`)
+that had leaked into local data.
 
-**Star rating in the form** was hardcoded to 5/4/3 — it now offers Unrated
-and 1–5, matching what the data actually contains (there are 37 2-star and
-148 unrated properties that previously couldn't be set from the form).
+**Mobile audit** — two real bugs, not just polish. (1) The mobile app-bar
+switches to a two-row layout but the container kept its one-row height —
+the second row (Directory/Analytics nav) rendered *outside* the header's
+own background, landing directly on the hero photo as invisible dark-on-
+dark text. Fixed with `height: auto`. (2) The hero/login video was
+excluded outright below 640px width on the assumption that a small screen
+implies a slow connection — it doesn't, and the practical effect was the
+video never played on any phone, full stop. Replaced the width check with
+the real signals (data-saver, actual 2G, reduced-motion) already used for
+everyone else. Also fixed: "Edit Requests" rendering on top of the logo at
+narrow widths for an admin session (now hidden on mobile like the other
+two admin buttons); added a scroll-fade mask to the horizontally-scrolling
+sort-pill row so it doesn't look like it just cuts off mid-word.
 
-**Detail modal contacts** are now a fixed 2×2 grid (Security Head | General
-Manager / Purchase Manager | Other) instead of auto-fill, collapsing to one
-column under 560px.
+**Directory UX pass** — hotel cards now show labelled fact rows ("City:
+Kolkata", "State: West Bengal", ...) instead of an ambiguous run-together
+string. The sort control (7 fields × 2 directions) collapsed behind a
+"Sort: Name · Ascending" toggle instead of sitting permanently on screen —
+it was also mislabeled "Alphabetical filters" for something that sorts,
+not filters. A "Clear filters" reset now also lives in the toolbar, not
+only in the rail (which is unreachable once its drawer closes on mobile or
+scrolls past on desktop). Hero numbers count up from their previous value
+on load and on every filter change instead of snapping to the new figure.
 
-**Viewer edit scope narrowed to contacts only** — a viewer's edit request may
-now change *only* the 16 contact fields. The whole "Basic Hotel Details"
-block (id, name, brand, group, hospitality parent, category, city, state,
-star rating, est. year, CPR date) is disabled in the form for viewers and
-rejected with 403 by `POST /:hotel_id/edit-requests` — enforced server-side,
-not just hidden. Admin/owner still edit everything via `PUT`.
+**Login page polish** — show/hide toggle on every password field. Video
+scrim darkened (was too washed out for the sign-in card to read against a
+bright frame).
 
-**Form pickers with create-new** — Brand, Management Group, Hospitality
-Parent, Category, City and State in the form modal are now type-to-filter
-comboboxes over the real distinct values, with a "+ Create new: …" row when
-the typed text matches nothing. Built as `window.enhanceInputCombobox` in
-`combobox.js` (separate from `enhanceSelect`, which wraps a `<select>` for
-the filter rail — this one wraps a text `<input>` because the value set is
-open, not closed). The point is de-duplication: stopping "Marriott" /
-"Marriot" / "marriott " becoming three brands. `/meta/filters` gained
-`group_names` and `categories` to back these.
+**About Us landing page** (`about.html`/`about.js`) — auto-advancing,
+cross-fading slide panels with a filling progress bar per tab (NVIDIA
+newsroom pattern), pausable on hover/focus, tabs/dots jump directly. Hit
+and fixed two real bugs building this: the fade-in never played because
+`requestAnimationFrame` gets throttled/suspended in a backgrounded tab
+(switched to a forced-reflow technique instead of double-rAF), and the
+progress bar had zero rendered width because it was a `<span>` (default
+`display: inline`) styled with block-level `width`/`height` (added
+`display: block`). See Decisions above for the landing-page redirect logic.
 
-**Filters narrow by geography** — `GET /hotels/meta/filters` now accepts
-optional `country` / `state` / `city` params and scopes the Brand,
-Hospitality Group and Star Rating lists (with recomputed counts) to that
-region. Selecting Goa takes Brand 203→64 and Group 112→20, and drops the
-2-star option that has no Goa property. A selection the new scope
-invalidates is cleared rather than left applied invisibly — the same rule
-the existing State/City cascade follows.
+**Site footer, favicon, accreditation badges, social links** — full footer
+with real contact info, social icons, and four accreditation badges
+(ISO 9001, American Heart Association, MSME, Make in India) — the source
+files arrived as AVIF-with-alpha disguised as `.jpg`/mismatched extensions
+more than once; always verify actual file format before trusting an
+extension. Favicon generated in the standard sizes (`.ico`, 16/32px PNG,
+180px apple-touch-icon) from a single source PNG.
 
-**Card layout fix** — `.card-visual svg` was a *descendant* selector, so it
-also matched the chevron inside `.card-cta` and the heart inside
-`.card-fav`, stretching both to `position:absolute; inset:0; width:100%` —
-that was the giant `>` overlapping "VIEW DETAILS". Now scoped to
-`.card-visual > svg`. The brand/group line also went from a one-line
-ellipsis to a two-line clamp so long values ("Ama Stays & Trails · IHCL
-Villas") stay readable.
-
-**Edit-approval workflow** — new
-`hotel_edit_requests` table (migration `1700000007000`). Viewers get the Edit
-button now; submitting computes a diff against the *live* database row
-server-side (never trusts a client-supplied "before" value) and stores only
-the changed fields. Admin/owner get an "Edit Requests" nav button with a
-pending-count badge and a review modal showing a real from→to diff table per
-field. Approve applies the stored values directly to `hotels`; reject stores
-an optional note. Verified end-to-end this session with a real viewer
-account, not just at the API — submit → queue → approve → confirmed in the
-database.
+**Taste-skill design audit** — ran the redesign-skill checklist against
+the whole site honestly rather than mechanically. Most of it didn't apply:
+the color palette (single brass accent, warm-tinted neutrals throughout),
+the Fraunces/Inter/IBM Plex Mono type pairing, tinted shadows, and
+hover/press states were already deliberate, not generic-AI defaults —
+left alone on purpose. Real gaps fixed: all 12 `window.alert()` calls in
+`script.js` replaced with a real toast component; `text-wrap: balance` on
+the real single-block headlines; meta description on every page plus Open
+Graph tags on `about.html` specifically (the one page meant to be shared);
+a branded `404.html` (confirmed Render serves it, with a real `404` status,
+for any unmatched route); skip-to-content links on all three pages.
+Deliberately *not* changed: the modal-based record editor (legitimate
+pattern for CRUD, not "modals for everything" laziness), and
+`window.confirm()` on the three destructive actions.
 
 ## Known issues
 
 **Not built**
-- **Analytics nav link is still a dead `#`** — the one clearly-missing piece.
-- No tests — `tests/` is empty, `npm test` will fail.
+- Analytics nav link is still a dead `#`.
+- No automated tests — `tests/` is empty, `npm test` fails.
 - JWT is stateless with no revocation — a leaked token stays valid up to
   the 8h `jwtExpiresIn` regardless of client-side logout.
 
-**Data quality**
-- 13 hotel names have mojibake from double-encoded UTF-8 in the source CSV,
-  repaired directly in the database. The importer does not repair encoding —
-  **a re-import reintroduces them.** IDs: TH00074, TH00084, TH00233, TH00293,
-  TH00924, TH00931, TH00936, TH00953, TH01110, TH01269, TH01270, TH01743,
-  TH01858.
-- Contact data is ~79% empty (1,788 of 2,274 hotels have none of the 16
-  fields) — the edit-approval workflow exists specifically to start closing
-  this gap over time.
-
 **Unverified**
-- Docker path has never been run.
-- No deployment target chosen.
-- Mobile breakpoints verified by CSS inspection and live testing in an
-  automation pane, not on a real device.
+- The skip-to-content links' CSS is standard and correct by inspection,
+  but couldn't be confirmed via the browser automation tooling this
+  session (it hit a tooling-level limitation — even a forced inline style
+  wasn't reflected in a readback, which is browser-impossible, i.e. the
+  test harness, not the code). Worth a real Tab-key check.
+- Mobile verified extensively via an automation pane and DOM measurement,
+  not on a real physical device.
+- Docker path has never been run — not the deployment path anyway (Render
+  is), so low priority to ever verify.
+
+**Data quality** — see the Data section above (mojibake, `category` field,
+placeholder products list).
+
+## In progress — pick this up next
+
+**A new page using a `design-md/` design system, via the taste-skill
+plugin.** Started, then explicitly paused by the user before either open
+question was answered — do not guess and build, ask again:
+
+1. **Which design system?** `design-md/` (repo root, gitignored — see
+   below) has 70+ reference folders, each a `DESIGN.md` + `README.md` pair
+   generated by the Stitch semantic-design-system skill, named after real
+   products/brands (`nvidia`, `stripe`, `linear.app`, `apple`, `notion`,
+   `spotify`, ...). Run `ls design-md/` for the current full list — none
+   was picked yet.
+2. **What is the page actually for?** Not specified. Two live candidates
+   floated in the conversation that led here: (a) finally replacing
+   `about.html`'s placeholder slide content with something real, or (b) an
+   entirely separate new page. Neither was chosen.
+
+`design-md/` is leftover reference material that came bundled with a
+design-audit skill run earlier, not part of this site. It's now in
+`.gitignore` (added after it was found sitting untracked and un-ignored —
+a plain `git add -A` would have swept all 70 brands' worth of docs into
+this repo otherwise).
 
 ## Suggested next steps
 
-1. Rotate `owner@thinkhealth.com` and `viewer@thinkhealth.com` off their demo
-   passwords.
-2. Build the Analytics page, or remove the nav link if it's not planned soon.
-3. Decide whether `owner@thinkhealth.com` should be restored to owner, left
-   as admin, or removed — it's a seeded account currently sitting in a
-   half-renamed state.
-4. Add encoding repair to the CSV importer so re-imports stay clean.
-5. Decide hosting; verify the Docker path or pick a Node+Postgres PaaS.
-6. Keep working through the contact-data gap via the edit-approval queue —
-   it's built and working, just needs use.
+1. Get the real product/equipment list from the user to replace the
+   AED/Stretcher/Wheelchair placeholder set (two files to update — see
+   "Products" above).
+2. Get real slide copy + imagery for `about.html` to replace the
+   placeholder content (marked clearly in `about.js`).
+3. Build the Analytics page, or remove the dead nav link if it's not
+   planned soon.
+4. Add JWT revocation (a `token_version` column + check, or a denylist) if
+   session-hijacking risk matters more than the added DB read per request.
+5. Add encoding repair to the CSV importer so a re-import doesn't
+   reintroduce the 13 known mojibake names.
+6. Real Tab-key check on the skip-to-content links (see Unverified above).
+7. Keep working the contact-data gap via the edit-approval queue — built
+   and working, just needs use (79% of hotels still have zero contact
+   fields filled).

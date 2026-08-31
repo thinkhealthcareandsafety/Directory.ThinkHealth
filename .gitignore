@@ -21,6 +21,10 @@ backups/
 FinalVideo.mp4
 LOGIN VIDEO.mp4
 
+# Design-system reference material from the taste-skill plugin (70+ brand
+# folders) — leftover from a design-audit run, not part of this site.
+design-md/
+
 # OS cruft
 .DS_Store
 Thumbs.db
