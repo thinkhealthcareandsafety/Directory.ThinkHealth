@@ -4,7 +4,8 @@
 
 // Loaded here rather than only in server.js so that anything pulling in the
 // app directly (tests, scripts) still sees the same environment.
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 const MIN_SECRET_LENGTH = 32;
 
