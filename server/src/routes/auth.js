@@ -76,8 +76,12 @@ router.post('/register/request', registerLimiter, async (req, res, next) => {
       [email, passwordHash, sha256Hex(otp), config.signupOtp.expiresMinutes]
     );
 
-    await sendSignupOtp(email, otp);
-    await logAuditEvent({ eventType: 'signup_requested', userEmail: email });
+    try {
+      await sendSignupOtp(email, otp);
+      await logAuditEvent({ eventType: 'signup_requested', userEmail: email });
+    } catch (emailErr) {
+      console.error('[SMTP Error] Failed to send signup verification email:', emailErr);
+    }
 
     res.status(200).json({ message: GENERIC_MESSAGE });
   } catch (err) {
