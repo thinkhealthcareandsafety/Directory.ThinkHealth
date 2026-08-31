@@ -212,14 +212,20 @@ router.post('/password-reset/request', passwordResetRequestLimiter, async (req, 
     );
 
     const otp = crypto.randomInt(0, 1000000).toString().padStart(6, '0');
-    await pool.query(
-      `INSERT INTO password_reset_otps (user_id, otp_hash, expires_at)
-       VALUES ($1, $2, now() + ($3 || ' minutes')::interval)`,
-      [user.id, sha256Hex(otp), config.passwordResetOtp.expiresMinutes]
-    );
+    const expiresMinutes = Number(config.passwordResetOtp.expiresMinutes) || 5;
 
-    await sendPasswordResetOtp(user.email, otp);
-    await logAuditEvent({ eventType: 'password_reset_requested', userEmail: user.email });
+await pool.query(
+  `INSERT INTO password_reset_otps (user_id, otp_hash, expires_at)
+   VALUES ($1, $2, now() + ($3 * INTERVAL '1 minute'))`,
+  [user.id, sha256Hex(otp), expiresMinutes]
+);
+
+    try {
+  await sendPasswordResetOtp(user.email, otp);
+  await logAuditEvent({ eventType: 'password_reset_requested', userEmail: user.email });
+} catch (emailErr) {
+  console.error('[SMTP Error] Failed to send password reset email:', emailErr);
+}
 
     res.status(200).json({ message: GENERIC_MESSAGE });
   } catch (err) {
