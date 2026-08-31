@@ -5,17 +5,26 @@ let transporter = null;
 
 function getTransporter() {
   if (!config.smtp.host) return null;
+
   if (!transporter) {
+    const port = Number(config.smtp.port);
+
     transporter = nodemailer.createTransport({
       host: config.smtp.host,
-      port: config.smtp.port,
-      secure: config.smtp.port === 465,
-      auth: { user: config.smtp.user, pass: config.smtp.pass },
+      port: port,
+      secure: port === 465, // Evaluates to true for port 465
+      auth: { 
+        user: config.smtp.user, 
+        pass: config.smtp.pass 
+      },
+      // Force connection attempt to fail quickly if blocked:
+      connectionTimeout: 5000, // 5 seconds
+      greetingTimeout: 5000,   // 5 seconds
+      socketTimeout: 5000,     // 5 seconds
     });
   }
   return transporter;
 }
-
 // In development without SMTP configured, the code is logged instead of
 // emailed so the reset flow is still testable locally. validateConfig()
 // makes this fatal in production, so this branch never runs there.
