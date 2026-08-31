@@ -1,63 +1,44 @@
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const { config } = require('./config');
 
-let transporter = null;
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
-function getTransporter() {
-  if (!config.smtp.host) return null;
-
-  if (!transporter) {
-    const port = Number(config.smtp.port);
-
-    transporter = nodemailer.createTransport({
-      host: config.smtp.host,
-      port: port,
-      secure: port === 465, // Evaluates to true for port 465
-      auth: { 
-        user: config.smtp.user, 
-        pass: config.smtp.pass 
-      },
-      // Force connection attempt to fail quickly if blocked:
-      connectionTimeout: 5000, // 5 seconds
-      greetingTimeout: 5000,   // 5 seconds
-      socketTimeout: 5000,     // 5 seconds
-    });
-  }
-  return transporter;
-}
-// In development without SMTP configured, the code is logged instead of
-// emailed so the reset flow is still testable locally. validateConfig()
-// makes this fatal in production, so this branch never runs there.
 async function sendPasswordResetOtp(email, otp) {
-  const t = getTransporter();
-  if (!t) {
+  if (!resend) {
     console.log(`[dev] Password reset code for ${email}: ${otp} (expires in ${config.passwordResetOtp.expiresMinutes} min)`);
     return;
   }
 
-  await t.sendMail({
-    from: config.smtp.from,
-    to: email,
-    subject: 'Your Thinkhealth password reset code',
-    text: `Your password reset code is ${otp}. It expires in ${config.passwordResetOtp.expiresMinutes} minutes. If you didn't request this, ignore this email.`,
-    html: `<p>Your password reset code is:</p><p style="font-size:28px;font-weight:600;letter-spacing:0.1em;">${otp}</p><p>It expires in ${config.passwordResetOtp.expiresMinutes} minutes. If you didn't request this, ignore this email.</p>`,
-  });
+  try {
+    await resend.emails.send({
+      from: 'onboarding@resend.dev', // Default testing domain provided by Resend
+      to: email,
+      subject: 'Your Thinkhealth password reset code',
+      html: `<p>Your password reset code is:</p><p style="font-size:28px;font-weight:600;letter-spacing:0.1em;">${otp}</p><p>It expires in ${config.passwordResetOtp.expiresMinutes} minutes. If you didn't request this, ignore this email.</p>`,
+    });
+  } catch (error) {
+    console.error('[Resend Error] Failed to send password reset email:', error);
+    throw error;
+  }
 }
 
 async function sendSignupOtp(email, otp) {
-  const t = getTransporter();
-  if (!t) {
+  if (!resend) {
     console.log(`[dev] Signup verification code for ${email}: ${otp} (expires in ${config.signupOtp.expiresMinutes} min)`);
     return;
   }
 
-  await t.sendMail({
-    from: config.smtp.from,
-    to: email,
-    subject: 'Verify your email — Thinkhealth Hotel Database',
-    text: `Your verification code is ${otp}. Enter it to finish creating your account. It expires in ${config.signupOtp.expiresMinutes} minutes. If you didn't request this, ignore this email.`,
-    html: `<p>Your verification code is:</p><p style="font-size:28px;font-weight:600;letter-spacing:0.1em;">${otp}</p><p>Enter it to finish creating your account. It expires in ${config.signupOtp.expiresMinutes} minutes. If you didn't request this, ignore this email.</p>`,
-  });
+  try {
+    await resend.emails.send({
+      from: 'onboarding@resend.dev',
+      to: email,
+      subject: 'Verify your email — Thinkhealth Hotel Database',
+      html: `<p>Your verification code is:</p><p style="font-size:28px;font-weight:600;letter-spacing:0.1em;">${otp}</p><p>Enter it to finish creating your account. It expires in ${config.signupOtp.expiresMinutes} minutes. If you didn't request this, ignore this email.</p>`,
+    });
+  } catch (error) {
+    console.error('[Resend Error] Failed to send signup email:', error);
+    throw error;
+  }
 }
 
 module.exports = { sendPasswordResetOtp, sendSignupOtp };
